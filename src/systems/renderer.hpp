@@ -3,6 +3,7 @@
 #include "../components.hpp"
 #include <raylib.h>
 #include <raymath.h>
+#include <algorithm>
 
 using namespace ecs;
 
@@ -11,9 +12,30 @@ public:
     static void Update(World& world) {
         float dt = GetFrameTime();
         
-        // Persistent camera state using a static variable (simple for prototype)
+        // --- Persistent Camera State ---
         static Vector3 lerp_camera_pos = { 0, 10, 20 };
         static Vector3 lerp_target_pos = { 0, 0, 0 };
+        
+        // Orbit parameters
+        static float orbit_phi = 0.0f;    // Horizontal angle
+        static float orbit_theta = 0.4f;  // Vertical angle (radians)
+        static float orbit_distance = 20.0f;
+
+        // 1. Handle Camera Input
+        if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT)) {
+            Vector2 delta = GetMouseDelta();
+            orbit_phi -= delta.x * 0.005f;
+            orbit_theta += delta.y * 0.005f;
+            
+            // Constrain vertical orbit to avoid gimbal lock/flipping
+            orbit_theta = std::clamp(orbit_theta, 0.1f, PI * 0.45f);
+        }
+
+        float wheel = GetMouseWheelMove();
+        if (std::abs(wheel) > 0.1f) {
+            orbit_distance -= wheel * 2.0f;
+            orbit_distance = std::clamp(orbit_distance, 5.0f, 60.0f);
+        }
 
         BeginDrawing();
         ClearBackground(DARKGRAY);
@@ -23,19 +45,24 @@ public:
         camera.fovy = 45.0f;
         camera.projection = CAMERA_PERSPECTIVE;
 
-        // Find player to focus camera and display HUD
+        // Find player
         world.single<PlayerTag, WorldTransform, PlayerInput, CharacterHandle>(
             [&](Entity, PlayerTag&, WorldTransform& wt, PlayerInput& input, CharacterHandle& h) {
                 Vector3 player_pos = { wt.matrix.m[12], wt.matrix.m[13], wt.matrix.m[14] };
                 
-                // --- Lazy Follow Logic ---
-                // Target is player position, Camera is offset behind
+                // 2. Calculate Desired Camera Position (Orbit)
+                // Convert spherical to cartesian
+                float x = orbit_distance * sinf(orbit_theta) * sinf(orbit_phi);
+                float y = orbit_distance * cosf(orbit_theta);
+                float z = orbit_distance * sinf(orbit_theta) * cosf(orbit_phi);
+                
+                Vector3 desired_offset = { x, y, z };
+                Vector3 desired_camera = Vector3Add(player_pos, desired_offset);
                 Vector3 desired_target = player_pos;
-                Vector3 desired_camera = Vector3Add(player_pos, Vector3{0, 8, 15}); // Pulled back further (8 up, 15 back)
 
-                // Snappiness factors (higher = faster)
-                float camera_speed = 5.0f; 
-                float target_speed = 10.0f;
+                // 3. Apply Lazy Follow (Smoothing)
+                float camera_speed = 8.0f; 
+                float target_speed = 12.0f;
 
                 lerp_camera_pos = Vector3Lerp(lerp_camera_pos, desired_camera, camera_speed * dt);
                 lerp_target_pos = Vector3Lerp(lerp_target_pos, desired_target, target_speed * dt);
@@ -43,7 +70,7 @@ public:
                 camera.position = lerp_camera_pos;
                 camera.target = lerp_target_pos;
                 
-                // Update View vectors for Input (crucial for movement relative to camera)
+                // Update View vectors for Input
                 Vector3 fwd = Vector3Normalize(Vector3Subtract(camera.target, camera.position));
                 Vector3 right = Vector3CrossProduct(fwd, camera.up);
                 input.view_forward = {fwd.x, fwd.y, fwd.z};
@@ -52,22 +79,15 @@ public:
                 // HUD
                 auto* ch = h.character.get();
                 auto ground_state = ch->GetGroundState();
-                const char* ground_str = "Unknown";
-                switch(ground_state) {
-                    case JPH::CharacterVirtual::EGroundState::OnGround: ground_str = "OnGround"; break;
-                    case JPH::CharacterVirtual::EGroundState::InAir: ground_str = "InAir"; break;
-                    default: ground_str = "Other"; break;
-                }
+                const char* ground_str = (ground_state == JPH::CharacterVirtual::EGroundState::OnGround) ? "OnGround" : "InAir";
                 
-                JPH::Vec3 vel = ch->GetLinearVelocity();
                 DrawText(TextFormat("Ground: %s", ground_str), 10, 60, 20, WHITE);
-                DrawText(TextFormat("Vel: %.2f, %.2f, %.2f", vel.GetX(), vel.GetY(), vel.GetZ()), 10, 80, 20, WHITE);
-                DrawText(TextFormat("Pos: %.2f, %.2f, %.2f", player_pos.x, player_pos.y, player_pos.z), 10, 100, 20, WHITE);
+                DrawText(TextFormat("Orbit: %.2f, %.2f Dist: %.1f", orbit_phi, orbit_theta, orbit_distance), 10, 80, 20, WHITE);
             }
         );
 
         BeginMode3D(camera);
-            DrawGrid(50, 2.0f);
+            DrawGrid(100, 2.0f);
 
             // Render Entities
             world.each<WorldTransform, MeshRenderer>(
@@ -94,7 +114,8 @@ public:
         EndMode3D();
 
         DrawFPS(10, 10);
-        DrawText("WASD: Move (Accelerated) | SPACE: Jump", 10, 30, 20, LIGHTGRAY);
+        DrawText("WASD: Move | SPACE: Jump | R: Reset", 10, 30, 20, LIGHTGRAY);
+        DrawText("RIGHT MOUSE: Orbit | SCROLL: Zoom", 10, 120, 20, YELLOW);
         
         EndDrawing();
     }
