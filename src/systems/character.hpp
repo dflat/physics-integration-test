@@ -49,12 +49,23 @@ public:
     if (!ctx_ptr || !*ctx_ptr) return;
     auto &ctx = **ctx_ptr;
 
-    world.each<CharacterHandle, PlayerInput, WorldTransform>(
-        [&](Entity e, CharacterHandle &h, PlayerInput &input, WorldTransform &wt) {
+    world.each<CharacterHandle, PlayerInput, PlayerState, WorldTransform>(
+        [&](Entity e, CharacterHandle &h, PlayerInput &input, PlayerState &state, WorldTransform &wt) {
           auto *ch = h.character.get();
           JPH::Vec3 current_vel = ch->GetLinearVelocity();
           
-          // --- 1. Horizontal Movement ---
+          // --- Ground State Detection ---
+          auto ground_state = ch->GetGroundState();
+          bool on_ground = ground_state == JPH::CharacterVirtual::EGroundState::OnGround;
+          
+          if (on_ground) {
+              state.jump_count = 0;
+              state.air_time = 0.0f;
+          } else {
+              state.air_time += dt;
+          }
+
+          // --- 1. Dynamic Horizontal Movement (Acceleration Curve) ---
           JPH::Vec3 fwd = MathBridge::ToJolt(input.view_forward);
           JPH::Vec3 right = MathBridge::ToJolt(input.view_right);
           fwd.SetY(0); right.SetY(0);
@@ -63,42 +74,35 @@ public:
 
           JPH::Vec3 move_dir = (fwd * input.move_input.y + right * input.move_input.x);
           
-          float max_speed = 9.0f;
-          float acceleration = 70.0f;
-          float friction = 18.0f;
-
+          // Movement parameters
+          float max_speed = 10.0f;
+          // Smoothly interpolate between ground and air acceleration
+          float accel_factor = on_ground ? 15.0f : 5.0f; 
+          
+          JPH::Vec3 target_vel = move_dir * max_speed;
           JPH::Vec3 horizontal_vel(current_vel.GetX(), 0, current_vel.GetZ());
           
-          if (move_dir.LengthSq() > 0.001f) {
-              horizontal_vel += move_dir * acceleration * dt;
-              if (horizontal_vel.Length() > max_speed) {
-                  horizontal_vel = horizontal_vel.Normalized() * max_speed;
-              }
-          } else {
-              float speed = horizontal_vel.Length();
-              if (speed > 0) {
-                  float drop = speed * friction * dt;
-                  float new_speed = std::max(0.0f, speed - drop);
-                  horizontal_vel *= (new_speed / speed);
-              }
-          }
+          // Non-linear acceleration: accelerate faster when far from target velocity
+          JPH::Vec3 vel_diff = target_vel - horizontal_vel;
+          horizontal_vel += vel_diff * accel_factor * dt;
 
-          // --- 2. Dynamic Vertical Movement ---
-          auto ground_state = ch->GetGroundState();
-          bool on_ground = ground_state == JPH::CharacterVirtual::EGroundState::OnGround;
-          
+          // --- 2. Vertical Movement (Gravity & Double Jump) ---
           float vertical_vel = current_vel.GetY();
-
-          // Variable Gravity: fall faster than you rise
-          float gravity = (vertical_vel < 0) ? -35.0f : -20.0f; 
           
-          if (on_ground && vertical_vel <= 0.01f) {
-              vertical_vel = -0.1f; // Small downward force to stay grounded
-              if (input.jump) {
-                  vertical_vel = 11.0f; // Snappy jump impulse
-              }
-          } else {
+          // Gravity curve
+          float gravity = (vertical_vel < 0) ? -40.0f : -25.0f; 
+          
+          bool can_jump = on_ground || (state.jump_count < 2 && state.air_time < 1.0f);
+
+          if (input.jump && can_jump) {
+              vertical_vel = (state.jump_count == 0) ? 12.0f : 10.0f; // Slightly weaker second jump
+              state.jump_count++;
+              // If we jump from air (e.g. walk off ledge), it counts as first jump used
+              if (!on_ground && state.jump_count == 1) state.jump_count = 2; 
+          } else if (!on_ground) {
               vertical_vel += gravity * dt;
+          } else if (on_ground && vertical_vel <= 0.01f) {
+              vertical_vel = -0.1f; // Ground stickiness
           }
 
           // Combine

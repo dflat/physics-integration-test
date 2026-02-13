@@ -44,6 +44,7 @@ void SpawnScene(ecs::World &world) {
   world.add(player, MeshRenderer{2, RED});
   world.add(player, PlayerTag{});
   world.add(player, PlayerInput{});
+  world.add(player, PlayerState{});
   world.add(player, CharacterControllerConfig{});
 
   // 3. Climbing Parkour

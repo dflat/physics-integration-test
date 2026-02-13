@@ -96,4 +96,9 @@ struct PlayerInput {
     ecs::Vec3 view_right = {1,0,0};
 };
 
+struct PlayerState {
+    int jump_count = 0;
+    float air_time = 0.0f;
+};
+
 struct PlayerTag {};
