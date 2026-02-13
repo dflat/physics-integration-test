@@ -7,6 +7,7 @@
 #include <ecs/modules/transform.hpp>
 #include <ecs/modules/transform_propagation.hpp>
 #include <raylib.h>
+#include <raymath.h>
 
 void System_Input(ecs::World &world) {
   world.single<PlayerInput>([&](ecs::Entity, PlayerInput &input) {
@@ -28,6 +29,8 @@ void System_Input(ecs::World &world) {
   });
 }
 
+ecs::Quat ToEcs(Quaternion q) { return {q.x, q.y, q.z, q.w}; }
+
 void SpawnScene(ecs::World &world) {
   // 1. Ground Plane
   auto ground = world.create();
@@ -47,21 +50,41 @@ void SpawnScene(ecs::World &world) {
   world.add(player, PlayerState{});
   world.add(player, CharacterControllerConfig{});
 
-  // 3. Climbing Parkour
-  struct Platform { ecs::Vec3 pos; ecs::Vec3 size; Color color; };
+  // 3. Climbing Parkour with Inclined Planes
+  struct Platform { 
+    ecs::Vec3 pos; 
+    ecs::Quat rot;
+    ecs::Vec3 size; 
+    Color color; 
+  };
+
+  ecs::Quat q_id = {0,0,0,1};
+  ecs::Quat q_pitch_20 = ToEcs(QuaternionFromAxisAngle({1, 0, 0}, 20.0f * DEG2RAD));
+  ecs::Quat q_pitch_40 = ToEcs(QuaternionFromAxisAngle({1, 0, 0}, 40.0f * DEG2RAD));
+  ecs::Quat q_roll_20 = ToEcs(QuaternionFromAxisAngle({0, 0, 1}, 20.0f * DEG2RAD));
+
   std::vector<Platform> platforms = {
-      {{5, 1, 5}, {4, 2, 4}, GRAY},
-      {{10, 2.5f, 10}, {3, 1, 3}, DARKBLUE},
-      {{15, 4.5f, 5}, {3, 1, 3}, MAROON},
-      {{10, 7.0f, -5}, {4, 1, 4}, DARKGREEN},
-      {{0, 9.0f, -10}, {5, 1, 5}, PURPLE},
-      {{-10, 12.0f, -5}, {3, 1, 8}, GOLD},
-      {{-5, 15.0f, 5}, {10, 1, 2}, SKYBLUE},
+      {{5, 1, 5}, q_id, {4, 2, 4}, GRAY},
+      {{10, 2.5f, 10}, q_id, {3, 1, 3}, DARKBLUE},
+      // Ramps
+      {{15, 2.0f, 0}, q_pitch_20, {8, 1, 4}, DARKGREEN},
+      {{20, 5.0f, -5}, q_pitch_40, {8, 1, 4}, MAROON},
+      {{15, 8.0f, -15}, q_roll_20, {4, 1, 8}, PURPLE},
+      
+      // Higher platforms
+      {{0, 10.0f, -15}, q_id, {6, 1, 6}, GOLD},
+      {{-10, 13.0f, -10}, q_id, {4, 1, 4}, SKYBLUE},
+      {{-15, 16.0f, 0}, q_pitch_20, {5, 1, 10}, ORANGE},
+      
+      // Floating steps
+      {{-5, 18.0f, 10}, q_id, {2, 0.5f, 2}, LIME},
+      {{0, 20.0f, 15}, q_id, {2, 0.5f, 2}, LIME},
+      {{5, 22.0f, 20}, q_id, {2, 0.5f, 2}, LIME},
   };
 
   for (const auto& p : platforms) {
       auto ent = world.create();
-      world.add(ent, ecs::LocalTransform{p.pos, {0,0,0,1}, p.size});
+      world.add(ent, ecs::LocalTransform{p.pos, p.rot, p.size});
       world.add(ent, ecs::WorldTransform{});
       world.add(ent, MeshRenderer{0, p.color});
       world.add(ent, BoxCollider{{p.size.x*0.5f, p.size.y*0.5f, p.size.z*0.5f}});
@@ -70,7 +93,7 @@ void SpawnScene(ecs::World &world) {
 }
 
 int main() {
-  InitWindow(1280, 720, "Physics Integration - Parkour");
+  InitWindow(1280, 720, "Physics Integration - Dynamic Parkour");
   SetTargetFPS(60);
 
   ecs::World world;
@@ -86,11 +109,8 @@ int main() {
     float dt = GetFrameTime();
 
     if (IsKeyPressed(KEY_R)) {
-        // Reset: Clear world manually by collecting IDs first
         std::vector<ecs::Entity> to_destroy;
-        world.each([&](ecs::Entity e) {
-            to_destroy.push_back(e);
-        });
+        world.each([&](ecs::Entity e) { to_destroy.push_back(e); });
         for (auto e : to_destroy) world.destroy(e);
         SpawnScene(world);
     }

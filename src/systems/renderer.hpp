@@ -4,6 +4,7 @@
 #include "../physics_context.hpp"
 #include <raylib.h>
 #include <raymath.h>
+#include <rlgl.h>
 #include <algorithm>
 
 using namespace ecs;
@@ -24,16 +25,12 @@ public:
             lightColorLoc = GetShaderLocation(lighting_shader, "lightColor");
             ambientLoc = GetShaderLocation(lighting_shader, "ambient");
             
-            // Set some defaults for a nice "afternoon" look
             Vector3 dir = Vector3Normalize({-0.5f, -1.0f, -0.3f});
             SetShaderValue(lighting_shader, lightDirLoc, &dir, SHADER_UNIFORM_VEC3);
-            
             Vector4 color = {1.0f, 1.0f, 0.9f, 1.0f};
             SetShaderValue(lighting_shader, lightColorLoc, &color, SHADER_UNIFORM_VEC4);
-            
             Vector4 ambient = {0.3f, 0.3f, 0.35f, 1.0f};
             SetShaderValue(lighting_shader, ambientLoc, &ambient, SHADER_UNIFORM_VEC4);
-            
             shader_loaded = true;
         }
 
@@ -43,11 +40,11 @@ public:
         static float orbit_theta = 0.6f;
         static float orbit_distance = 25.0f;
 
-        // Input
+        // Input - Inverted Vertical Axis as requested
         if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT)) {
             Vector2 delta = GetMouseDelta();
             orbit_phi -= delta.x * 0.005f;
-            orbit_theta += delta.y * 0.005f;
+            orbit_theta -= delta.y * 0.005f; // Inverted
             orbit_theta = std::clamp(orbit_theta, 0.1f, PI * 0.45f);
         }
         float wheel = GetMouseWheelMove();
@@ -67,7 +64,6 @@ public:
         world.single<PlayerTag, WorldTransform, PlayerInput, CharacterHandle>(
             [&](Entity, PlayerTag&, WorldTransform& wt, PlayerInput& input, CharacterHandle& h) {
                 Vector3 player_pos = { wt.matrix.m[12], wt.matrix.m[13], wt.matrix.m[14] };
-                
                 float x = orbit_distance * sinf(orbit_theta) * sinf(orbit_phi);
                 float y = orbit_distance * cosf(orbit_theta);
                 float z = orbit_distance * sinf(orbit_theta) * cosf(orbit_phi);
@@ -93,30 +89,30 @@ public:
             BeginShaderMode(lighting_shader);
             world.each<WorldTransform, MeshRenderer>(
                 [&](Entity, WorldTransform& wt, MeshRenderer& mesh) {
-                    Vector3 pos = { wt.matrix.m[12], wt.matrix.m[13], wt.matrix.m[14] };
-                    float sx = Vector3Length({wt.matrix.m[0], wt.matrix.m[1], wt.matrix.m[2]});
-                    float sy = Vector3Length({wt.matrix.m[4], wt.matrix.m[5], wt.matrix.m[6]});
-                    float sz = Vector3Length({wt.matrix.m[8], wt.matrix.m[9], wt.matrix.m[10]});
+                    rlPushMatrix();
+                    rlMultMatrixf((float*)&wt.matrix);
 
                     switch (mesh.shape_type) {
-                        case 0: // Box
-                            DrawCube(pos, sx, sy, sz, mesh.color);
+                        case 0: // Box (Unit box transformed by matrix)
+                            DrawCube({0,0,0}, 1.0f, 1.0f, 1.0f, mesh.color);
                             break;
                         case 1: // Sphere
-                            DrawSphere(pos, 0.5f * sx, mesh.color);
+                            DrawSphere({0,0,0}, 0.5f, mesh.color);
                             break;
                         case 2: // Capsule (Player)
-                            DrawCapsule(pos, Vector3Add(pos, {0, 1.8f * sy, 0}), 0.4f * sx, 8, 8, mesh.color);
+                            // Characters usually aren't rotated for simplicity, but we support it
+                            DrawCapsule({0,0,0}, {0, 1.8f, 0}, 0.4f, 8, 8, mesh.color);
                             break;
                     }
+                    rlPopMatrix();
                 }
             );
             EndShaderMode();
         EndMode3D();
 
         DrawFPS(10, 10);
-        DrawText("WASD: Move | SPACE: Jump | R: Reset", 10, 30, 20, LIGHTGRAY);
-        DrawText("RIGHT MOUSE: Orbit | SCROLL: Zoom", 10, 60, 20, YELLOW);
+        DrawText("WASD: Move | SPACE: Jump (Double) | R: Reset", 10, 30, 20, LIGHTGRAY);
+        DrawText("RIGHT MOUSE: Orbit (Inverted) | SCROLL: Zoom", 10, 60, 20, YELLOW);
         
         EndDrawing();
     }
