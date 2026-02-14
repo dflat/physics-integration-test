@@ -43,10 +43,15 @@ public:
         static float orbit_phi = 0.0f;
         static float orbit_theta = 0.6f;
         static float orbit_distance = 25.0f;
+        static float last_manual_move_time = 0.0f;
+        static JPH::Vec3 smoothed_vel = JPH::Vec3::sZero();
+        
+        last_manual_move_time += dt;
         float wheel = GetMouseWheelMove();
         if (std::abs(wheel) > 0.1f) {
             orbit_distance -= wheel * 2.0f;
             orbit_distance = std::clamp(orbit_distance, 5.0f, 80.0f);
+            last_manual_move_time = 0.0f;
         }
 
         BeginDrawing();
@@ -63,37 +68,43 @@ public:
             [&](Entity, PlayerTag&, WorldTransform& wt, PlayerInput& input, CharacterHandle& h) {
                 player_pos = { wt.matrix.m[12], wt.matrix.m[13], wt.matrix.m[14] };
                 
-                if (input.camera_follow_mode) {
-                    // Follow Mode: Stay behind the character's movement direction
-                    static float follow_phi = 0.0f;
-                    static float follow_theta = 1.2f; // Slightly lower pitch for 3rd person
-                    float target_phi = orbit_phi;
-
-                    JPH::Vec3 vel = h.character->GetLinearVelocity();
-                    vel.SetY(0);
-                    if (vel.LengthSq() > 1.0f) {
-                        // Calculate angle from velocity (Jolt uses Z-forward, X-right)
-                        // atan2(x, z) gives the angle from the Z axis
-                        target_phi = atan2f(vel.GetX(), vel.GetZ());
-                    }
-
-                    // Smoothly interpolate the angle
-                    // Use AngleLerp or handle wrap-around manually
-                    float diff = target_phi - orbit_phi;
-                    while (diff < -PI) diff += 2 * PI;
-                    while (diff > PI) diff -= 2 * PI;
-                    orbit_phi += diff * 3.0f * dt;
-                    
-                    // Keep theta (pitch) comfortable for 3rd person
-                    float target_theta = 1.3f; 
-                    orbit_theta = Lerp(orbit_theta, target_theta, 2.0f * dt);
-                    orbit_distance = Lerp(orbit_distance, 15.0f, 2.0f * dt);
-                } else if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT)) {
+                if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT)) {
                     Vector2 delta = GetMouseDelta();
                     orbit_phi -= delta.x * 0.005f;
                     orbit_theta -= delta.y * 0.005f;
                     orbit_theta = std::clamp(orbit_theta, 0.1f, PI * 0.45f);
+                    last_manual_move_time = 0.0f;
                 }
+
+                if (input.camera_follow_mode && last_manual_move_time > 1.0f) {
+                    // Lazy Follow: Stay behind the character's movement direction
+                    JPH::Vec3 vel = h.character->GetLinearVelocity();
+                    vel.SetY(0);
+                    
+                    // Smooth the velocity vector to avoid jitter
+                    smoothed_vel += (vel - smoothed_vel) * 2.0f * dt;
+
+                    float speed_sq = smoothed_vel.LengthSq();
+                    if (speed_sq > 0.5f) {
+                        // Calculate target angle from smoothed velocity
+                        float target_phi = atan2f(smoothed_vel.GetX(), smoothed_vel.GetZ());
+
+                        // Calculate difference and normalize to [-PI, PI]
+                        float diff = target_phi - orbit_phi;
+                        while (diff < -PI) diff += 2 * PI;
+                        while (diff > PI) diff -= 2 * PI;
+
+                        // Interpolation speed scales with movement speed
+                        float speed_factor = std::clamp(sqrtf(speed_sq) / 10.0f, 0.0f, 1.0f);
+                        float follow_speed = 1.5f * speed_factor;
+                        
+                        orbit_phi += diff * follow_speed * dt;
+                    }
+                    
+                    // Smoothly return to a standard 3rd person pitch/distance
+                    orbit_theta = Lerp(orbit_theta, 1.1f, 1.0f * dt);
+                    orbit_distance = Lerp(orbit_distance, 15.0f, 1.0f * dt);
+                } 
 
                 float x = orbit_distance * sinf(orbit_theta) * sinf(orbit_phi);
                 float y = orbit_distance * cosf(orbit_theta);
