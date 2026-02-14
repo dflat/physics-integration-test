@@ -20,17 +20,34 @@ public:
 
         world.each<MainCamera>([&](Entity, MainCamera& cam) {
             // 1. Handle Input (Toggle & Manual Move)
-            if (IsKeyPressed(KEY_C)) cam.follow_mode = !cam.follow_mode;
+            // Keyboard 'C' or Gamepad 'West' (Left Face Button)
+            bool toggle_follow = IsKeyPressed(KEY_C);
+            for (int i = 0; i < 4; i++) {
+                if (IsGamepadAvailable(i) && IsGamepadButtonPressed(i, GAMEPAD_BUTTON_RIGHT_FACE_LEFT)) {
+                    toggle_follow = true;
+                    break;
+                }
+            }
+            if (toggle_follow) cam.follow_mode = !cam.follow_mode;
 
+            // Manual Mouse Orbit
             if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT)) {
                 Vector2 delta = GetMouseDelta();
                 cam.orbit_phi -= delta.x * 0.005f;
                 cam.orbit_theta -= delta.y * 0.005f;
-                cam.orbit_theta = std::clamp(cam.orbit_theta, 0.1f, PI * 0.45f);
                 cam.last_manual_move_time = 0.0f;
-            } else {
+            } 
+            // Manual Gamepad Orbit
+            else if (std::abs(player_input->look_input.x) > 0.01f || std::abs(player_input->look_input.y) > 0.01f) {
+                cam.orbit_phi -= player_input->look_input.x * 2.5f * dt;
+                cam.orbit_theta += player_input->look_input.y * 2.5f * dt;
+                cam.last_manual_move_time = 0.0f;
+            }
+            else {
                 cam.last_manual_move_time += dt;
             }
+            
+            cam.orbit_theta = std::clamp(cam.orbit_theta, 0.1f, PI * 0.45f);
 
             float wheel = GetMouseWheelMove();
             if (std::abs(wheel) > 0.1f) {

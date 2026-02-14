@@ -2,6 +2,7 @@
 #include "physics_context.hpp"
 #include "systems/camera.hpp"
 #include "systems/character.hpp"
+#include "systems/gamepad.hpp"
 #include "systems/physics.hpp"
 #include "systems/renderer.hpp"
 #include <ecs/ecs.hpp>
@@ -121,6 +122,7 @@ int main() {
     }
 
     System_Input(world);
+    GamepadInputSystem::Update(world);
     CameraSystem::Update(world, dt);
     CharacterSystem::Update(world, dt);
     PhysicsSystem::Update(world, dt);

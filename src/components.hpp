@@ -90,7 +90,8 @@ struct MeshRenderer {
 // ---------------------------------------------------------------------------
 
 struct PlayerInput {
-    ecs::Vec2 move_input = {0,0}; // X, Y (WASD)
+    ecs::Vec2 move_input = {0,0}; // X, Y (WASD / Left Stick)
+    ecs::Vec2 look_input = {0,0}; // X, Y (Right Stick)
     bool jump = false;
     ecs::Vec3 view_forward = {0,0,1};
     ecs::Vec3 view_right = {1,0,0};
