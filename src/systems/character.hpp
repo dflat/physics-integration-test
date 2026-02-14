@@ -136,7 +136,21 @@ public:
           new_vel.SetY(vertical_vel);
           ch->SetLinearVelocity(new_vel);
 
-          // --- 3. Step (Extended Update) ---
+          // --- 3. Rotation ---
+          // Rotate character to face movement direction smoothly
+          if (horizontal_vel.LengthSq() > 0.1f) {
+              JPH::Vec3 look_dir = horizontal_vel.Normalized();
+              // In Jolt, CharacterVirtual is usually +Z forward or we define it by its rotation
+              // We'll calculate a rotation that faces the movement direction
+              float angle = atan2f(look_dir.GetX(), look_dir.GetZ());
+              JPH::Quat target_rot = JPH::Quat::sRotation(JPH::Vec3::sAxisY(), angle);
+              
+              // Smoothly interpolate rotation
+              JPH::Quat current_rot = ch->GetRotation();
+              ch->SetRotation(current_rot.SLERP(target_rot, 10.0f * dt).Normalized());
+          }
+
+          // --- 4. Step (Extended Update) ---
           JPH::DefaultBroadPhaseLayerFilter bp_filter(ctx.object_vs_broadphase_layer_filter, Layers::MOVING);
           JPH::DefaultObjectLayerFilter obj_filter(ctx.object_layer_pair_filter, Layers::MOVING);
           JPH::BodyFilter body_filter;

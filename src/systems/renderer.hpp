@@ -84,28 +84,29 @@ public:
                     // Smooth the velocity vector to avoid jitter
                     smoothed_vel += (vel - smoothed_vel) * 2.0f * dt;
 
+                    // Always calculate a target_phi based on where we WANT to be.
+                    // If moving, we update it. If stopped, we look at character's rotation.
+                    static float target_phi = 0.0f;
+
                     float speed_sq = smoothed_vel.LengthSq();
-                    if (speed_sq > 0.5f) {
-                        // In our orbit math: 
-                        // x = distance * sin(theta) * sin(phi)
-                        // z = distance * sin(theta) * cos(phi)
-                        // This means phi = 0 is +Z, phi = PI/2 is +X.
-                        
-                        // To be BEHIND the velocity (vx, vz), the camera should be at (-vx, -vz)
-                        // target_phi = atan2(-vx, -vz)
-                        float target_phi = atan2f(-smoothed_vel.GetX(), -smoothed_vel.GetZ());
-
-                        // Calculate difference and normalize to [-PI, PI]
-                        float diff = target_phi - orbit_phi;
-                        while (diff < -PI) diff += 2 * PI;
-                        while (diff > PI) diff -= 2 * PI;
-
-                        // Interpolation speed scales with movement speed
-                        float speed_factor = std::clamp(sqrtf(speed_sq) / 10.0f, 0.0f, 1.0f);
-                        float follow_speed = 1.5f * speed_factor;
-                        
-                        orbit_phi += diff * follow_speed * dt;
+                    if (speed_sq > 0.1f) {
+                        target_phi = atan2f(-smoothed_vel.GetX(), -smoothed_vel.GetZ());
+                    } else {
+                        // If stopped, stay behind the character's actual forward vector
+                        JPH::Vec3 ch_fwd = h.character->GetRotation() * JPH::Vec3::sAxisZ();
+                        target_phi = atan2f(-ch_fwd.GetX(), -ch_fwd.GetZ());
                     }
+
+                    // Calculate difference and normalize to [-PI, PI]
+                    float diff = target_phi - orbit_phi;
+                    while (diff < -PI) diff += 2 * PI;
+                    while (diff > PI) diff -= 2 * PI;
+
+                    // Interpolation speed: slower when stopped but never zero
+                    float speed_factor = std::clamp(sqrtf(speed_sq) / 10.0f, 0.1f, 1.0f);
+                    float follow_speed = 1.5f * speed_factor;
+                    
+                    orbit_phi += diff * follow_speed * dt;
                     
                     // Smoothly return to a standard 3rd person pitch/distance
                     orbit_theta = Lerp(orbit_theta, 1.1f, 1.0f * dt);
@@ -150,20 +151,20 @@ public:
 
                     // Draw Gizmo for player
                     if (world.has<PlayerTag>(e)) {
-                        auto* h = world.try_get<CharacterHandle>(e);
-                        if (!h) return;
+                        auto* h_ptr = world.try_get<CharacterHandle>(e);
+                        if (!h_ptr) return;
+                        auto& ch = h_ptr->character;
 
                         Vector3 pos = { wt.matrix.m[12], wt.matrix.m[13] + 1.0f, wt.matrix.m[14] };
-                        JPH::Vec3 vel = h->character->GetLinearVelocity();
-                        vel.SetY(0);
-                        if (vel.LengthSq() > 0.1f) {
-                            vel = vel.Normalized();
-                            Vector3 fwd = { vel.GetX(), 0, vel.GetZ() };
-                            Vector3 right = { -fwd.z, 0, fwd.x }; // Perpendicular
-                            DrawLine3D(pos, Vector3Add(pos, Vector3Scale(fwd, 2.0f)), RED);    // Forward
-                            DrawLine3D(pos, Vector3Add(pos, Vector3Scale(right, 1.0f)), BLUE); // Right
-                            DrawLine3D(pos, Vector3Add(pos, {0, 1, 0}), GREEN);               // Up
-                        }
+                        
+                        // Use actual Jolt rotation for gizmo
+                        JPH::Vec3 j_fwd = ch->GetRotation() * JPH::Vec3::sAxisZ();
+                        JPH::Vec3 j_right = ch->GetRotation() * JPH::Vec3::sAxisX();
+                        JPH::Vec3 j_up = ch->GetRotation() * JPH::Vec3::sAxisY();
+
+                        DrawLine3D(pos, Vector3Add(pos, {(float)j_fwd.GetX()*1.5f, (float)j_fwd.GetY()*1.5f, (float)j_fwd.GetZ()*1.5f}), RED);    // Forward (Z)
+                        DrawLine3D(pos, Vector3Add(pos, {(float)j_right.GetX()*1.0f, (float)j_right.GetY()*1.0f, (float)j_right.GetZ()*1.0f}), BLUE); // Right (X)
+                        DrawLine3D(pos, Vector3Add(pos, {(float)j_up.GetX()*1.0f, (float)j_up.GetY()*1.0f, (float)j_up.GetZ()*1.0f}), GREEN);   // Up (Y)
                     }
                 }
             );
