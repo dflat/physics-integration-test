@@ -78,7 +78,23 @@ target_include_directories(demo PRIVATE src ${joltphysics_SOURCE_DIR}
 # Linking
 target_link_libraries(demo PRIVATE ecs Jolt raylib)
 
+# Windows-specific system libraries for Raylib
+if(WIN32)
+  target_link_libraries(demo PRIVATE winmm gdi32 opengl32 shell32 user32)
+endif()
+
+# Copy resources to build directory so they are found relative to executable
+add_custom_command(TARGET demo POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    ${CMAKE_CURRENT_SOURCE_DIR}/resources
+    $<TARGET_FILE_DIR:demo>/resources
+)
+
 # Enable aggressive optimization for Release builds
 if(CMAKE_BUILD_TYPE MATCHES Release)
-  target_compile_options(demo PRIVATE -O3)
+  if(MSVC)
+    target_compile_options(demo PRIVATE /O2)
+  else()
+    target_compile_options(demo PRIVATE -O3)
+  endif()
 endif()

@@ -19,7 +19,7 @@ public:
         static int playerPosLoc, shadowRadiusLoc, shadowIntensityLoc;
 
         if (!shader_loaded) {
-            lighting_shader = LoadShader("/home/rjr/code/projects/physics-integration-test/resources/shaders/lighting.vs", "/home/rjr/code/projects/physics-integration-test/resources/shaders/lighting.fs");
+            lighting_shader = LoadShader("resources/shaders/lighting.vs", "resources/shaders/lighting.fs");
             lightDirLoc = GetShaderLocation(lighting_shader, "lightDir");
             lightColorLoc = GetShaderLocation(lighting_shader, "lightColor");
             ambientLoc = GetShaderLocation(lighting_shader, "ambient");
