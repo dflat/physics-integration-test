@@ -1,5 +1,6 @@
 #include "components.hpp"
 #include "physics_context.hpp"
+#include "systems/camera.hpp"
 #include "systems/character.hpp"
 #include "systems/physics.hpp"
 #include "systems/renderer.hpp"
@@ -20,7 +21,6 @@ void System_Input(ecs::World &world) {
     if (IsKeyDown(KEY_D)) input.move_input.x = 1.0f;
     
     if (IsKeyPressed(KEY_SPACE)) input.jump = true;
-    if (IsKeyPressed(KEY_C)) input.camera_follow_mode = !input.camera_follow_mode;
 
     if (std::abs(input.move_input.x) > 0.1f || std::abs(input.move_input.y) > 0.1f) {
       float len = std::sqrt(input.move_input.x * input.move_input.x + input.move_input.y * input.move_input.y);
@@ -50,6 +50,10 @@ void SpawnScene(ecs::World &world) {
   world.add(player, PlayerInput{});
   world.add(player, PlayerState{});
   world.add(player, CharacterControllerConfig{});
+
+  // 4. Camera
+  auto camera = world.create();
+  world.add(camera, MainCamera{});
 
   // 3. Climbing Parkour with Inclined Planes
   struct Platform { 
@@ -117,6 +121,7 @@ int main() {
     }
 
     System_Input(world);
+    CameraSystem::Update(world, dt);
     CharacterSystem::Update(world, dt);
     PhysicsSystem::Update(world, dt);
     ecs::propagate_transforms(world);

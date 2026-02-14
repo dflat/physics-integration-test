@@ -92,9 +92,27 @@ struct MeshRenderer {
 struct PlayerInput {
     ecs::Vec2 move_input = {0,0}; // X, Y (WASD)
     bool jump = false;
-    bool camera_follow_mode = false;
     ecs::Vec3 view_forward = {0,0,1};
     ecs::Vec3 view_right = {1,0,0};
+};
+
+struct MainCamera {
+    // State
+    float orbit_phi = 0.0f;
+    float orbit_theta = 0.6f;
+    float orbit_distance = 25.0f;
+    
+    // Smoothing (using Raylib types for direct use in math functions)
+    Vector3 lerp_pos = {0, 10, 20};
+    Vector3 lerp_target = {0, 0, 0};
+    JPH::Vec3 smoothed_vel = JPH::Vec3::sZero();
+    
+    // Logic state
+    float last_manual_move_time = 0.0f;
+    bool follow_mode = false;
+    
+    // Final Output (Consumed by Renderer)
+    Camera3D raylib_camera = {0};
 };
 
 struct PlayerState {
