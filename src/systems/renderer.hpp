@@ -98,7 +98,7 @@ public:
 
         // 4. Render UI
         DrawFPS(10, 10);
-        DrawText("WASD / L-STICK: Move | SPACE / SOUTH: Jump | E / R-TRIG: Plant Platform", 10, 30, 20, LIGHTGRAY);
+        DrawText("WASD / L-STICK: Move | SPACE / SOUTH: Jump | E,LMB / R-TRIG: Plant Platform", 10, 30, 20, LIGHTGRAY);
         DrawText("R-MOUSE / R-STICK: Orbit | Z,X / L,R-BUMP: Zoom | C / WEST: Toggle Follow", 10, 60, 20, YELLOW);
         
         if (follow_mode) {

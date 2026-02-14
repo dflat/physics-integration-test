@@ -20,13 +20,13 @@ void System_Input(ecs::World &world) {
     input.plant_platform = false;
     input.trigger_val = 0.0f;
 
-    if (IsKeyDown(KEY_W) || IsMouseButtonDown(MOUSE_BUTTON_LEFT)) input.move_input.y = 1.0f;
+    if (IsKeyDown(KEY_W)) input.move_input.y = 1.0f;
     if (IsKeyDown(KEY_S)) input.move_input.y = -1.0f;
     if (IsKeyDown(KEY_A)) input.move_input.x = -1.0f;
     if (IsKeyDown(KEY_D)) input.move_input.x = 1.0f;
     
     if (IsKeyPressed(KEY_SPACE)) input.jump = true;
-    if (IsKeyPressed(KEY_E)) {
+    if (IsKeyPressed(KEY_E) || IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
         input.plant_platform = true;
         input.trigger_val = 1.0f;
     }
