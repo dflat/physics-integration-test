@@ -81,8 +81,8 @@ public:
                     JPH::Vec3 vel = h.character->GetLinearVelocity();
                     vel.SetY(0);
                     
-                    // Smooth the velocity vector to avoid jitter
-                    smoothed_vel += (vel - smoothed_vel) * 2.0f * dt;
+                    // Smooth the velocity vector - increased speed (2.0 -> 5.0)
+                    smoothed_vel += (vel - smoothed_vel) * 5.0f * dt;
 
                     // Always calculate a target_phi based on where we WANT to be.
                     // If moving, we update it. If stopped, we look at character's rotation.
@@ -102,15 +102,15 @@ public:
                     while (diff < -PI) diff += 2 * PI;
                     while (diff > PI) diff -= 2 * PI;
 
-                    // Interpolation speed: slower when stopped but never zero
-                    float speed_factor = std::clamp(sqrtf(speed_sq) / 10.0f, 0.1f, 1.0f);
-                    float follow_speed = 1.5f * speed_factor;
+                    // Interpolation speed: significantly snappier (1.5 -> 4.0)
+                    float speed_factor = std::clamp(sqrtf(speed_sq) / 10.0f, 0.2f, 1.0f);
+                    float follow_speed = 4.0f * speed_factor;
                     
                     orbit_phi += diff * follow_speed * dt;
                     
                     // Smoothly return to a standard 3rd person pitch/distance
-                    orbit_theta = Lerp(orbit_theta, 1.1f, 1.0f * dt);
-                    orbit_distance = Lerp(orbit_distance, 15.0f, 1.0f * dt);
+                    orbit_theta = Lerp(orbit_theta, 1.1f, 2.0f * dt);
+                    orbit_distance = Lerp(orbit_distance, 15.0f, 2.0f * dt);
                 } 
 
                 float x = orbit_distance * sinf(orbit_theta) * sinf(orbit_phi);
