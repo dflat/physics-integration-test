@@ -10,12 +10,23 @@ using namespace ecs;
 class GamepadInputSystem {
 public:
     static void Update(World& world) {
-        world.each<PlayerTag, PlayerInput>([&](Entity, PlayerTag&, PlayerInput& input) {
-            // Check all 4 gamepad slots
-            for (int i = 0; i < 4; i++) {
-                if (!IsGamepadAvailable(i)) continue;
+        // 1. Determine which gamepads are actually connected this frame
+        static int active_gamepads[4];
+        int active_count = 0;
+        for (int i = 0; i < 4; i++) {
+            if (IsGamepadAvailable(i)) {
+                active_gamepads[active_count++] = i;
+            }
+        }
 
-                // 1. Left Stick -> Movement (Additive to keyboard)
+        // 2. Early exit if no gamepads are connected
+        if (active_count == 0) return;
+
+        world.each<PlayerTag, PlayerInput>([&](Entity, PlayerTag&, PlayerInput& input) {
+            for (int j = 0; j < active_count; j++) {
+                int i = active_gamepads[j];
+
+                // 1. Left Stick -> Movement
                 float lx = GetGamepadAxisMovement(i, GAMEPAD_AXIS_LEFT_X);
                 float ly = GetGamepadAxisMovement(i, GAMEPAD_AXIS_LEFT_Y);
                 

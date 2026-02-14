@@ -18,18 +18,23 @@ public:
 
         if (!player_input) return;
 
+        // Determine active gamepads
+        static int active_gamepads[4];
+        int active_count = 0;
+        for (int i = 0; i < 4; i++) {
+            if (IsGamepadAvailable(i)) active_gamepads[active_count++] = i;
+        }
+
         world.each<MainCamera>([&](Entity, MainCamera& cam) {
             // 1. Handle Input (Toggle & Manual Move)
-            // Keyboard 'C' or Gamepad 'West' (Left Face Button)
             bool toggle_follow = IsKeyPressed(KEY_C);
             
-            // Zoom state logic
             int zoom_delta = 0;
             if (IsKeyPressed(KEY_X)) zoom_delta++;
             if (IsKeyPressed(KEY_Z)) zoom_delta--;
 
-            for (int i = 0; i < 4; i++) {
-                if (!IsGamepadAvailable(i)) continue;
+            for (int j = 0; j < active_count; j++) {
+                int i = active_gamepads[j];
                 if (IsGamepadButtonPressed(i, GAMEPAD_BUTTON_RIGHT_FACE_LEFT)) toggle_follow = true;
                 if (IsGamepadButtonPressed(i, GAMEPAD_BUTTON_LEFT_TRIGGER_1)) zoom_delta--;
                 if (IsGamepadButtonPressed(i, GAMEPAD_BUTTON_RIGHT_TRIGGER_1)) zoom_delta++;
