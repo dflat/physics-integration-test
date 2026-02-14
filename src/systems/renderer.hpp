@@ -86,8 +86,14 @@ public:
 
                     float speed_sq = smoothed_vel.LengthSq();
                     if (speed_sq > 0.5f) {
-                        // Calculate target angle from smoothed velocity
-                        float target_phi = atan2f(smoothed_vel.GetX(), smoothed_vel.GetZ());
+                        // In our orbit math: 
+                        // x = distance * sin(theta) * sin(phi)
+                        // z = distance * sin(theta) * cos(phi)
+                        // This means phi = 0 is +Z, phi = PI/2 is +X.
+                        
+                        // To be BEHIND the velocity (vx, vz), the camera should be at (-vx, -vz)
+                        // target_phi = atan2(-vx, -vz)
+                        float target_phi = atan2f(-smoothed_vel.GetX(), -smoothed_vel.GetZ());
 
                         // Calculate difference and normalize to [-PI, PI]
                         float diff = target_phi - orbit_phi;
@@ -132,7 +138,7 @@ public:
             DrawGrid(100, 2.0f);
             BeginShaderMode(lighting_shader);
             world.each<WorldTransform, MeshRenderer>(
-                [&](Entity, WorldTransform& wt, MeshRenderer& mesh) {
+                [&](Entity e, WorldTransform& wt, MeshRenderer& mesh) {
                     rlPushMatrix();
                     rlMultMatrixf((float*)&wt.matrix);
                     switch (mesh.shape_type) {
@@ -141,6 +147,24 @@ public:
                         case 2: DrawCapsule({0,0,0}, {0, 1.8f, 0}, 0.4f, 8, 8, mesh.color); break;
                     }
                     rlPopMatrix();
+
+                    // Draw Gizmo for player
+                    if (world.has<PlayerTag>(e)) {
+                        auto* h = world.try_get<CharacterHandle>(e);
+                        if (!h) return;
+
+                        Vector3 pos = { wt.matrix.m[12], wt.matrix.m[13] + 1.0f, wt.matrix.m[14] };
+                        JPH::Vec3 vel = h->character->GetLinearVelocity();
+                        vel.SetY(0);
+                        if (vel.LengthSq() > 0.1f) {
+                            vel = vel.Normalized();
+                            Vector3 fwd = { vel.GetX(), 0, vel.GetZ() };
+                            Vector3 right = { -fwd.z, 0, fwd.x }; // Perpendicular
+                            DrawLine3D(pos, Vector3Add(pos, Vector3Scale(fwd, 2.0f)), RED);    // Forward
+                            DrawLine3D(pos, Vector3Add(pos, Vector3Scale(right, 1.0f)), BLUE); // Right
+                            DrawLine3D(pos, Vector3Add(pos, {0, 1, 0}), GREEN);               // Up
+                        }
+                    }
                 }
             );
             EndShaderMode();
