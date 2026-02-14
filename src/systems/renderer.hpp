@@ -86,26 +86,29 @@ public:
                     if (speed_sq > 0.5f) {
                         JPH::Vec3 move_dir = smoothed_vel.Normalized();
                         
-                        // Calculate current camera forward in XZ plane
-                        JPH::Vec3 cam_fwd(sinf(orbit_phi), 0, cosf(orbit_phi));
+                        // Current camera forward vector (from camera to player) in XZ plane:
+                        // Camera is at (sin phi, cos phi), looking at (0, 0). 
+                        // Direction TO player is (-sin phi, -cos phi).
+                        JPH::Vec3 cam_to_player(-sinf(orbit_phi), 0, -cosf(orbit_phi));
+                        
                         // Dot product: 1.0 means moving exactly AWAY from camera, -1.0 means moving TOWARDS
-                        float alignment = move_dir.Dot(cam_fwd);
+                        float alignment = move_dir.Dot(cam_to_player);
 
-                        // Only auto-center if the player is moving generally away from the camera
-                        // This prevents the camera from "whipping" around when walking towards it
-                        if (alignment > -0.2f) {
+                        // If moving generally AWAY from camera, perform auto-centering
+                        if (alignment > 0.0f) {
                             float target_phi = atan2f(-move_dir.GetX(), -move_dir.GetZ());
                             float diff = target_phi - orbit_phi;
                             while (diff < -PI) diff += 2 * PI;
                             while (diff > PI) diff -= 2 * PI;
 
-                            // Scale rotation speed by alignment: faster when moving away, 
-                            // zero when moving sideways or towards.
-                            float alignment_weight = std::clamp((alignment + 0.2f) / 1.2f, 0.0f, 1.0f);
+                            // Snappy follow when moving away, fades out as we turn sideways
+                            float alignment_weight = std::clamp(alignment, 0.0f, 1.0f);
                             float speed_factor = std::clamp(sqrtf(speed_sq) / 10.0f, 0.0f, 1.0f);
                             
-                            orbit_phi += diff * 4.0f * alignment_weight * speed_factor * dt;
+                            orbit_phi += diff * 5.0f * alignment_weight * speed_factor * dt;
                         }
+                        // If moving TOWARDS the camera (alignment < 0), we do nothing,
+                        // letting the player walk toward the screen without the camera spinning.
                     }
                     
                     // Smoothly return to standard view parameters
