@@ -98,8 +98,8 @@ public:
 
         // 4. Render UI
         DrawFPS(10, 10);
-        DrawText("WASD: Move | SPACE: Jump (Double) | R: Reset", 10, 30, 20, LIGHTGRAY);
-        DrawText("RIGHT MOUSE: Orbit (Inverted) | SCROLL: Zoom | C: Toggle Follow", 10, 60, 20, YELLOW);
+        DrawText("WASD / L-STICK: Move | SPACE / SOUTH: Jump | R: Reset", 10, 30, 20, LIGHTGRAY);
+        DrawText("R-MOUSE / R-STICK: Orbit | SCROLL: Zoom | C / WEST: Toggle Follow", 10, 60, 20, YELLOW);
         
         if (follow_mode) {
             DrawText("CAMERA: FOLLOW MODE", 10, 90, 20, LIME);

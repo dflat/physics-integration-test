@@ -14,6 +14,7 @@
 void System_Input(ecs::World &world) {
   world.single<PlayerInput>([&](ecs::Entity, PlayerInput &input) {
     input.move_input = {0, 0};
+    input.look_input = {0, 0};
     input.jump = false;
 
     if (IsKeyDown(KEY_W) || IsMouseButtonDown(MOUSE_BUTTON_LEFT)) input.move_input.y = 1.0f;

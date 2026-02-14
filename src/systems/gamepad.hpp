@@ -3,46 +3,58 @@
 #include <ecs/ecs.hpp>
 #include <raylib.h>
 #include <cmath>
+#include <algorithm>
 
 using namespace ecs;
 
 class GamepadInputSystem {
 public:
     static void Update(World& world) {
-        // Find the first available gamepad
-        int gamepad = 0;
-        bool found = false;
-        for (int i = 0; i < 4; i++) {
-            if (IsGamepadAvailable(i)) {
-                gamepad = i;
-                found = true;
-                break;
+        world.each<PlayerTag, PlayerInput>([&](Entity, PlayerTag&, PlayerInput& input) {
+            // Check all 4 gamepad slots
+            for (int i = 0; i < 4; i++) {
+                if (!IsGamepadAvailable(i)) continue;
+
+                // 1. Left Stick -> Movement (Additive to keyboard)
+                float lx = GetGamepadAxisMovement(i, GAMEPAD_AXIS_LEFT_X);
+                float ly = GetGamepadAxisMovement(i, GAMEPAD_AXIS_LEFT_Y);
+                
+                // We use a slightly larger deadzone for safety
+                const float deadzone = 0.15f;
+                
+                if (std::abs(lx) > deadzone) {
+                    input.move_input.x = lx;
+                }
+                if (std::abs(ly) > deadzone) {
+                    // ly is positive down in Raylib, so we negate it for our "forward" (positive Y)
+                    input.move_input.y = -ly;
+                }
+
+                // 2. Right Stick -> Look (Additive to mouse)
+                float rx = GetGamepadAxisMovement(i, GAMEPAD_AXIS_RIGHT_X);
+                float ry = GetGamepadAxisMovement(i, GAMEPAD_AXIS_RIGHT_Y);
+                
+                if (std::abs(rx) > deadzone) {
+                    input.look_input.x = rx;
+                }
+                if (std::abs(ry) > deadzone) {
+                    input.look_input.y = ry;
+                }
+
+                // 3. Buttons
+                // South button (Jump)
+                if (IsGamepadButtonPressed(i, GAMEPAD_BUTTON_RIGHT_FACE_DOWN)) {
+                    input.jump = true;
+                }
             }
-        }
 
-        if (!found) return;
-
-        world.each<PlayerInput>([&](Entity, PlayerInput& input) {
-            // 1. Left Stick -> Movement (Y is inverted in Raylib axes vs our move logic)
-            float lx = GetGamepadAxisMovement(gamepad, GAMEPAD_AXIS_LEFT_X);
-            float ly = GetGamepadAxisMovement(gamepad, GAMEPAD_AXIS_LEFT_Y);
-            
-            // Deadzone and apply
-            if (std::abs(lx) > 0.1f) input.move_input.x = lx;
-            if (std::abs(ly) > 0.1f) input.move_input.y = -ly;
-
-            // 2. Right Stick -> Look
-            float rx = GetGamepadAxisMovement(gamepad, GAMEPAD_AXIS_RIGHT_X);
-            float ry = GetGamepadAxisMovement(gamepad, GAMEPAD_AXIS_RIGHT_Y);
-            
-            if (std::abs(rx) > 0.1f) input.look_input.x = rx;
-            else input.look_input.x = 0;
-            
-            if (std::abs(ry) > 0.1f) input.look_input.y = ry;
-            else input.look_input.y = 0;
-
-            // 3. Buttons
-            if (IsGamepadButtonPressed(gamepad, GAMEPAD_BUTTON_RIGHT_FACE_DOWN)) input.jump = true;
+            // Optional: Normalize move_input if it exceeds 1.0 (combined keyboard + gamepad)
+            float move_mag_sq = input.move_input.x * input.move_input.x + input.move_input.y * input.move_input.y;
+            if (move_mag_sq > 1.0f) {
+                float mag = std::sqrt(move_mag_sq);
+                input.move_input.x /= mag;
+                input.move_input.y /= mag;
+            }
         });
     }
 };
