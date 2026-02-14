@@ -20,6 +20,7 @@ void System_Input(ecs::World &world) {
     if (IsKeyDown(KEY_D)) input.move_input.x = 1.0f;
     
     if (IsKeyPressed(KEY_SPACE)) input.jump = true;
+    if (IsKeyPressed(KEY_C)) input.camera_follow_mode = !input.camera_follow_mode;
 
     if (std::abs(input.move_input.x) > 0.1f || std::abs(input.move_input.y) > 0.1f) {
       float len = std::sqrt(input.move_input.x * input.move_input.x + input.move_input.y * input.move_input.y);

@@ -92,6 +92,7 @@ struct MeshRenderer {
 struct PlayerInput {
     ecs::Vec2 move_input = {0,0}; // X, Y (WASD)
     bool jump = false;
+    bool camera_follow_mode = false;
     ecs::Vec3 view_forward = {0,0,1};
     ecs::Vec3 view_right = {1,0,0};
 };

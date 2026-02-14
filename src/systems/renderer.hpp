@@ -43,13 +43,6 @@ public:
         static float orbit_phi = 0.0f;
         static float orbit_theta = 0.6f;
         static float orbit_distance = 25.0f;
-
-        if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT)) {
-            Vector2 delta = GetMouseDelta();
-            orbit_phi -= delta.x * 0.005f;
-            orbit_theta -= delta.y * 0.005f;
-            orbit_theta = std::clamp(orbit_theta, 0.1f, PI * 0.45f);
-        }
         float wheel = GetMouseWheelMove();
         if (std::abs(wheel) > 0.1f) {
             orbit_distance -= wheel * 2.0f;
@@ -69,9 +62,43 @@ public:
         world.single<PlayerTag, WorldTransform, PlayerInput, CharacterHandle>(
             [&](Entity, PlayerTag&, WorldTransform& wt, PlayerInput& input, CharacterHandle& h) {
                 player_pos = { wt.matrix.m[12], wt.matrix.m[13], wt.matrix.m[14] };
+                
+                if (input.camera_follow_mode) {
+                    // Follow Mode: Stay behind the character's movement direction
+                    static float follow_phi = 0.0f;
+                    static float follow_theta = 1.2f; // Slightly lower pitch for 3rd person
+                    float target_phi = orbit_phi;
+
+                    JPH::Vec3 vel = h.character->GetLinearVelocity();
+                    vel.SetY(0);
+                    if (vel.LengthSq() > 1.0f) {
+                        // Calculate angle from velocity (Jolt uses Z-forward, X-right)
+                        // atan2(x, z) gives the angle from the Z axis
+                        target_phi = atan2f(vel.GetX(), vel.GetZ());
+                    }
+
+                    // Smoothly interpolate the angle
+                    // Use AngleLerp or handle wrap-around manually
+                    float diff = target_phi - orbit_phi;
+                    while (diff < -PI) diff += 2 * PI;
+                    while (diff > PI) diff -= 2 * PI;
+                    orbit_phi += diff * 3.0f * dt;
+                    
+                    // Keep theta (pitch) comfortable for 3rd person
+                    float target_theta = 1.3f; 
+                    orbit_theta = Lerp(orbit_theta, target_theta, 2.0f * dt);
+                    orbit_distance = Lerp(orbit_distance, 15.0f, 2.0f * dt);
+                } else if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT)) {
+                    Vector2 delta = GetMouseDelta();
+                    orbit_phi -= delta.x * 0.005f;
+                    orbit_theta -= delta.y * 0.005f;
+                    orbit_theta = std::clamp(orbit_theta, 0.1f, PI * 0.45f);
+                }
+
                 float x = orbit_distance * sinf(orbit_theta) * sinf(orbit_phi);
                 float y = orbit_distance * cosf(orbit_theta);
                 float z = orbit_distance * sinf(orbit_theta) * cosf(orbit_phi);
+
                 lerp_camera_pos = Vector3Lerp(lerp_camera_pos, Vector3Add(player_pos, {x, y, z}), 8.0f * dt);
                 lerp_target_pos = Vector3Lerp(lerp_target_pos, player_pos, 12.0f * dt);
                 camera.position = lerp_camera_pos;
@@ -110,7 +137,16 @@ public:
 
         DrawFPS(10, 10);
         DrawText("WASD: Move | SPACE: Jump (Double) | R: Reset", 10, 30, 20, LIGHTGRAY);
-        DrawText("RIGHT MOUSE: Orbit (Inverted) | SCROLL: Zoom", 10, 60, 20, YELLOW);
+        DrawText("RIGHT MOUSE: Orbit (Inverted) | SCROLL: Zoom | C: Toggle Follow", 10, 60, 20, YELLOW);
+        
+        world.single<PlayerInput>([&](Entity, PlayerInput& input) {
+            if (input.camera_follow_mode) {
+                DrawText("CAMERA: FOLLOW MODE", 10, 90, 20, LIME);
+            } else {
+                DrawText("CAMERA: MANUAL MODE", 10, 90, 20, SKYBLUE);
+            }
+        });
+
         EndDrawing();
     }
 };
