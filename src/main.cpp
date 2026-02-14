@@ -128,11 +128,13 @@ int main() {
     System_Input(world);
     GamepadInputSystem::Update(world);
     PlatformBuilderSystem::Update(world);
+    world.deferred().flush(world); // Create platforms before physics step
     CameraSystem::Update(world, dt);
     CharacterSystem::Update(world, dt);
     PhysicsSystem::Update(world, dt);
     ecs::propagate_transforms(world);
     RenderSystem::Update(world);
+    world.deferred().flush(world); // Catch-all for any other deferred commands
   }
 
   CloseWindow();

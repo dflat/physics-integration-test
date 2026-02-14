@@ -19,17 +19,17 @@ public:
                 if (cooldown > 0) return;
                 cooldown = 0.3f;
 
-                // Position: beneath player
                 ecs::Vec3 player_pos = { wt.matrix.m[12], wt.matrix.m[13], wt.matrix.m[14] };
                 ecs::Vec3 spawn_pos = { player_pos.x, player_pos.y - 0.2f, player_pos.z };
                 ecs::Vec3 size = { 4.0f, 0.5f, 4.0f };
 
-                auto ent = world.create();
-                world.add(ent, ecs::LocalTransform{spawn_pos, {0,0,0,1}, size});
-                world.add(ent, ecs::WorldTransform{});
-                world.add(ent, MeshRenderer{0, MAROON});
-                world.add(ent, BoxCollider{{size.x * 0.5f, size.y * 0.5f, size.z * 0.5f}});
-                world.add(ent, RigidBodyConfig{BodyType::Static});
+                world.deferred().create_with(
+                    ecs::LocalTransform{spawn_pos, {0,0,0,1}, size},
+                    ecs::WorldTransform{},
+                    MeshRenderer{0, MAROON},
+                    BoxCollider{{size.x * 0.5f, size.y * 0.5f, size.z * 0.5f}},
+                    RigidBodyConfig{BodyType::Static}
+                );
             }
         });
     }
