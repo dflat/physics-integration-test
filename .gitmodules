@@ -1,0 +1,3 @@
+[submodule "extern/ecs"]
+	path = extern/ecs
+	url = https://github.com/dflat/ecs.git

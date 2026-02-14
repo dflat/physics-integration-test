@@ -10,13 +10,12 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # --- Dependencies ---
 
-# 1. ECS (Sibling Directory) We assume the ecs repo is at ../ecs
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../ecs")
-  message(STATUS "Found ECS library at ../ecs")
-  add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../ecs"
+# 1. ECS (Git Submodule in extern/ecs)
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/extern/ecs/CMakeLists.txt")
+  add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/extern/ecs"
                    "${CMAKE_BINARY_DIR}/ecs_build" EXCLUDE_FROM_ALL)
 else()
-  message(FATAL_ERROR "ECS library not found at ../ecs. Please clone it there.")
+  message(FATAL_ERROR "ECS submodule not found in extern/ecs. Did you run 'git submodule update --init'?")
 endif()
 
 # 1. Jolt Physics (FetchContent)
