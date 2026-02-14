@@ -1,5 +1,6 @@
 #include "components.hpp"
 #include "physics_context.hpp"
+#include "systems/builder.hpp"
 #include "systems/camera.hpp"
 #include "systems/character.hpp"
 #include "systems/gamepad.hpp"
@@ -16,6 +17,7 @@ void System_Input(ecs::World &world) {
     input.move_input = {0, 0};
     input.look_input = {0, 0};
     input.jump = false;
+    input.plant_platform = false;
 
     if (IsKeyDown(KEY_W) || IsMouseButtonDown(MOUSE_BUTTON_LEFT)) input.move_input.y = 1.0f;
     if (IsKeyDown(KEY_S)) input.move_input.y = -1.0f;
@@ -23,6 +25,7 @@ void System_Input(ecs::World &world) {
     if (IsKeyDown(KEY_D)) input.move_input.x = 1.0f;
     
     if (IsKeyPressed(KEY_SPACE)) input.jump = true;
+    if (IsKeyPressed(KEY_E)) input.plant_platform = true;
 
     if (std::abs(input.move_input.x) > 0.1f || std::abs(input.move_input.y) > 0.1f) {
       float len = std::sqrt(input.move_input.x * input.move_input.x + input.move_input.y * input.move_input.y);
@@ -124,6 +127,7 @@ int main() {
 
     System_Input(world);
     GamepadInputSystem::Update(world);
+    PlatformBuilderSystem::Update(world);
     CameraSystem::Update(world, dt);
     CharacterSystem::Update(world, dt);
     PhysicsSystem::Update(world, dt);

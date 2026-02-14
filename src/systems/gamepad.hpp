@@ -46,6 +46,11 @@ public:
                 if (IsGamepadButtonPressed(i, GAMEPAD_BUTTON_RIGHT_FACE_DOWN)) {
                     input.jump = true;
                 }
+
+                // Right Trigger (Plant Platform)
+                if (GetGamepadAxisMovement(i, GAMEPAD_AXIS_RIGHT_TRIGGER) > 0.5f) {
+                    input.plant_platform = true;
+                }
             }
 
             // Optional: Normalize move_input if it exceeds 1.0 (combined keyboard + gamepad)

@@ -22,13 +22,28 @@ public:
             // 1. Handle Input (Toggle & Manual Move)
             // Keyboard 'C' or Gamepad 'West' (Left Face Button)
             bool toggle_follow = IsKeyPressed(KEY_C);
+            
+            // Zoom state logic
+            int zoom_delta = 0;
+            if (IsKeyPressed(KEY_X)) zoom_delta++;
+            if (IsKeyPressed(KEY_Z)) zoom_delta--;
+
             for (int i = 0; i < 4; i++) {
-                if (IsGamepadAvailable(i) && IsGamepadButtonPressed(i, GAMEPAD_BUTTON_RIGHT_FACE_LEFT)) {
-                    toggle_follow = true;
-                    break;
-                }
+                if (!IsGamepadAvailable(i)) continue;
+                if (IsGamepadButtonPressed(i, GAMEPAD_BUTTON_RIGHT_FACE_LEFT)) toggle_follow = true;
+                if (IsGamepadButtonPressed(i, GAMEPAD_BUTTON_LEFT_TRIGGER_1)) zoom_delta--;
+                if (IsGamepadButtonPressed(i, GAMEPAD_BUTTON_RIGHT_TRIGGER_1)) zoom_delta++;
             }
             if (toggle_follow) cam.follow_mode = !cam.follow_mode;
+
+            if (zoom_delta != 0) {
+                cam.zoom_index = std::clamp(cam.zoom_index + zoom_delta, 0, 2);
+                cam.last_manual_move_time = 0.0f;
+            }
+
+            static const float zoom_levels[] = { 10.0f, 25.0f, 50.0f };
+            float target_dist = zoom_levels[cam.zoom_index];
+            cam.orbit_distance = Lerp(cam.orbit_distance, target_dist, 5.0f * dt);
 
             // Manual Mouse Orbit
             if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT)) {
