@@ -77,38 +77,38 @@ public:
                 }
 
                 if (input.camera_follow_mode && last_manual_move_time > 1.0f) {
-                    // Lazy Follow: Stay behind the character's movement direction
+                    // Smart Follow: Intelligently adjust centering based on heading
                     JPH::Vec3 vel = h.character->GetLinearVelocity();
                     vel.SetY(0);
-                    
-                    // Smooth the velocity vector - increased speed (2.0 -> 5.0)
                     smoothed_vel += (vel - smoothed_vel) * 5.0f * dt;
 
-                    // Always calculate a target_phi based on where we WANT to be.
-                    // If moving, we update it. If stopped, we look at character's rotation.
-                    static float target_phi = 0.0f;
-
                     float speed_sq = smoothed_vel.LengthSq();
-                    if (speed_sq > 0.1f) {
-                        target_phi = atan2f(-smoothed_vel.GetX(), -smoothed_vel.GetZ());
-                    } else {
-                        // If stopped, stay behind the character's actual forward vector
-                        JPH::Vec3 ch_fwd = h.character->GetRotation() * JPH::Vec3::sAxisZ();
-                        target_phi = atan2f(-ch_fwd.GetX(), -ch_fwd.GetZ());
+                    if (speed_sq > 0.5f) {
+                        JPH::Vec3 move_dir = smoothed_vel.Normalized();
+                        
+                        // Calculate current camera forward in XZ plane
+                        JPH::Vec3 cam_fwd(sinf(orbit_phi), 0, cosf(orbit_phi));
+                        // Dot product: 1.0 means moving exactly AWAY from camera, -1.0 means moving TOWARDS
+                        float alignment = move_dir.Dot(cam_fwd);
+
+                        // Only auto-center if the player is moving generally away from the camera
+                        // This prevents the camera from "whipping" around when walking towards it
+                        if (alignment > -0.2f) {
+                            float target_phi = atan2f(-move_dir.GetX(), -move_dir.GetZ());
+                            float diff = target_phi - orbit_phi;
+                            while (diff < -PI) diff += 2 * PI;
+                            while (diff > PI) diff -= 2 * PI;
+
+                            // Scale rotation speed by alignment: faster when moving away, 
+                            // zero when moving sideways or towards.
+                            float alignment_weight = std::clamp((alignment + 0.2f) / 1.2f, 0.0f, 1.0f);
+                            float speed_factor = std::clamp(sqrtf(speed_sq) / 10.0f, 0.0f, 1.0f);
+                            
+                            orbit_phi += diff * 4.0f * alignment_weight * speed_factor * dt;
+                        }
                     }
-
-                    // Calculate difference and normalize to [-PI, PI]
-                    float diff = target_phi - orbit_phi;
-                    while (diff < -PI) diff += 2 * PI;
-                    while (diff > PI) diff -= 2 * PI;
-
-                    // Interpolation speed: significantly snappier (1.5 -> 4.0)
-                    float speed_factor = std::clamp(sqrtf(speed_sq) / 10.0f, 0.2f, 1.0f);
-                    float follow_speed = 4.0f * speed_factor;
                     
-                    orbit_phi += diff * follow_speed * dt;
-                    
-                    // Smoothly return to a standard 3rd person pitch/distance
+                    // Smoothly return to standard view parameters
                     orbit_theta = Lerp(orbit_theta, 1.1f, 2.0f * dt);
                     orbit_distance = Lerp(orbit_distance, 15.0f, 2.0f * dt);
                 } 
