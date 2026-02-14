@@ -57,8 +57,10 @@ public:
           // --- Ground State Detection ---
           auto ground_state = ch->GetGroundState();
           bool on_ground = ground_state == JPH::CharacterVirtual::EGroundState::OnGround;
+          bool on_slope = ground_state == JPH::CharacterVirtual::EGroundState::OnSteepGround;
+          bool is_supported = on_ground || on_slope;
           
-          if (on_ground) {
+          if (is_supported) {
               state.jump_count = 0;
               state.air_time = 0.0f;
           } else {
@@ -68,40 +70,63 @@ public:
           // --- 1. Dynamic Horizontal Movement (Acceleration Curve) ---
           JPH::Vec3 fwd = MathBridge::ToJolt(input.view_forward);
           JPH::Vec3 right = MathBridge::ToJolt(input.view_right);
-          fwd.SetY(0); right.SetY(0);
-          if (fwd.LengthSq() > 0.001f) fwd = fwd.Normalized();
-          if (right.LengthSq() > 0.001f) right = right.Normalized();
+          
+          // Project forward and right onto the horizontal plane (X-Z)
+          fwd.SetY(0); 
+          right.SetY(0);
+          
+          if (fwd.LengthSq() > 0.001f) {
+              fwd = fwd.Normalized();
+          } else {
+              // Fallback if looking straight up/down: use the 'right' vector to derive a forward
+              // or just use the camera's forward without Y
+              fwd = JPH::Vec3(input.view_forward.x, 0, input.view_forward.z);
+              if (fwd.LengthSq() > 0.001f) fwd = fwd.Normalized();
+              else fwd = JPH::Vec3::sAxisZ(); // Absolute fallback
+          }
+          
+          if (right.LengthSq() > 0.001f) {
+              right = right.Normalized();
+          } else {
+              right = fwd.Cross(JPH::Vec3::sAxisY()).Normalized();
+          }
 
           JPH::Vec3 move_dir = (fwd * input.move_input.y + right * input.move_input.x);
           
           // Movement parameters
           float max_speed = 10.0f;
           // Smoothly interpolate between ground and air acceleration
-          float accel_factor = on_ground ? 15.0f : 5.0f; 
+          float accel_factor = is_supported ? 15.0f : 5.0f; 
           
           JPH::Vec3 target_vel = move_dir * max_speed;
           JPH::Vec3 horizontal_vel(current_vel.GetX(), 0, current_vel.GetZ());
           
-          // Non-linear acceleration: accelerate faster when far from target velocity
+          // Non-linear acceleration
           JPH::Vec3 vel_diff = target_vel - horizontal_vel;
           horizontal_vel += vel_diff * accel_factor * dt;
 
           // --- 2. Vertical Movement (Gravity & Double Jump) ---
           float vertical_vel = current_vel.GetY();
           
-          // Gravity curve
+          // Gravity curve: stronger gravity when falling
           float gravity = (vertical_vel < 0) ? -40.0f : -25.0f; 
           
-          bool can_jump = on_ground || (state.jump_count < 2 && state.air_time < 1.0f);
+          // Coyote time: Allow a short window to jump after leaving ground
+          bool can_coyote = (state.jump_count == 0 && state.air_time < 0.2f);
+          bool can_jump = is_supported || can_coyote || state.jump_count < 2;
 
           if (input.jump && can_jump) {
               vertical_vel = (state.jump_count == 0) ? 12.0f : 10.0f; // Slightly weaker second jump
+
+              // If we are in the air and haven't jumped yet, we use up the first jump slot (coyote)
+              if (!is_supported && state.jump_count == 0) {
+                  state.jump_count = 1;
+              }
+              
               state.jump_count++;
-              // If we jump from air (e.g. walk off ledge), it counts as first jump used
-              if (!on_ground && state.jump_count == 1) state.jump_count = 2; 
-          } else if (!on_ground) {
+          } else if (!is_supported) {
               vertical_vel += gravity * dt;
-          } else if (on_ground && vertical_vel <= 0.01f) {
+          } else if (is_supported && vertical_vel <= 0.01f) {
               vertical_vel = -0.1f; // Ground stickiness
           }
 
