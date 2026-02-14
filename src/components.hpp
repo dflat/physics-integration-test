@@ -94,6 +94,7 @@ struct PlayerInput {
     ecs::Vec2 look_input = {0,0}; // X, Y (Right Stick)
     bool jump = false;
     bool plant_platform = false;
+    float trigger_val = 0.0f;     // Added for axis edge detection
     ecs::Vec3 view_forward = {0,0,1};
     ecs::Vec3 view_right = {1,0,0};
 };
@@ -121,6 +122,8 @@ struct MainCamera {
 struct PlayerState {
     int jump_count = 0;
     float air_time = 0.0f;
+    float build_cooldown = 0.0f;
+    bool trigger_was_down = false;
 };
 
 struct PlayerTag {};

@@ -48,7 +48,9 @@ public:
                 }
 
                 // Right Trigger (Plant Platform)
-                if (GetGamepadAxisMovement(i, GAMEPAD_AXIS_RIGHT_TRIGGER) > 0.5f) {
+                float rt = GetGamepadAxisMovement(i, GAMEPAD_AXIS_RIGHT_TRIGGER);
+                input.trigger_val = std::max(input.trigger_val, rt);
+                if (rt > 0.5f) {
                     input.plant_platform = true;
                 }
             }
