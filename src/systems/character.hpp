@@ -126,8 +126,10 @@ public:
               state.jump_count++;
           } else if (!is_supported) {
               vertical_vel += gravity * dt;
-          } else if (is_supported && vertical_vel <= 0.01f) {
-              vertical_vel = -0.1f; // Ground stickiness
+          } else {
+              // On ground/slope, reset vertical velocity if not jumping
+              // (Gravity force for moving bodies is passed to ExtendedUpdate)
+              vertical_vel = 0.0f;
           }
 
           // Combine
@@ -135,13 +137,18 @@ public:
           new_vel.SetY(vertical_vel);
           ch->SetLinearVelocity(new_vel);
 
-          // --- 3. Step ---
+          // --- 3. Step (Extended Update) ---
           JPH::DefaultBroadPhaseLayerFilter bp_filter(ctx.object_vs_broadphase_layer_filter, Layers::MOVING);
           JPH::DefaultObjectLayerFilter obj_filter(ctx.object_layer_pair_filter, Layers::MOVING);
           JPH::BodyFilter body_filter;
           JPH::ShapeFilter shape_filter;
 
-          ch->Update(dt, JPH::Vec3::sZero(), bp_filter, obj_filter, body_filter, shape_filter, *ctx.temp_allocator);
+          // Settings for StickToFloor and WalkStairs
+          JPH::CharacterVirtual::ExtendedUpdateSettings settings;
+          // Use a default gravity for downward force on other bodies
+          JPH::Vec3 gravity_vec(0, -9.81f, 0); 
+
+          ch->ExtendedUpdate(dt, gravity_vec, settings, bp_filter, obj_filter, body_filter, shape_filter, *ctx.temp_allocator);
 
           // --- 4. Sync ---
           JPH::RVec3 next_pos = ch->GetPosition();
