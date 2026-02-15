@@ -19,11 +19,7 @@ public:
         static int playerPosLoc, shadowRadiusLoc, shadowIntensityLoc;
 
         if (!shader_loaded) {
-            const char* app_dir = GetApplicationDirectory();
-            const char* vs_path = TextFormat("%sresources/shaders/lighting.vs", app_dir);
-            const char* fs_path = TextFormat("%sresources/shaders/lighting.fs", app_dir);
-            
-            lighting_shader = LoadShader(vs_path, fs_path);
+            lighting_shader = LoadShader("resources/shaders/lighting.vs", "resources/shaders/lighting.fs");
             lightDirLoc = GetShaderLocation(lighting_shader, "lightDir");
             lightColorLoc = GetShaderLocation(lighting_shader, "lightColor");
             ambientLoc = GetShaderLocation(lighting_shader, "ambient");
