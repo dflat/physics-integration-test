@@ -27,7 +27,12 @@ FetchContent_Declare(
   GIT_TAG v5.2.0
   SOURCE_SUBDIR Build)
 
-# Jolt Build Options (Optimize for prototyping)
+# Jolt Build Options
+if(MSVC)
+  # Jolt defaults to static runtime (MT), but we (and Raylib) use dynamic (MD)
+  set(USE_STATIC_MSVC_RUNTIME_LIBRARY OFF CACHE BOOL "" FORCE)
+endif()
+
 set(USE_SSE4_2
     ON
     CACHE BOOL "" FORCE)
