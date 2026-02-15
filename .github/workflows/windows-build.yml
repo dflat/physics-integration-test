@@ -31,7 +31,7 @@ jobs:
         path: |
           ${{github.workspace}}/build/_deps
           ${{github.workspace}}/build/ecs_build
-        key: ${{ runner.os }}-deps-${{ hashFiles('**/CMakeLists.txt', 'extern/**') }}
+        key: ${{ runner.os }}-deps-${{ hashFiles('**/CMakeLists.txt', 'extern/**/*.hpp', 'extern/**/*.cpp') }}
         restore-keys: |
           ${{ runner.os }}-deps-
 
