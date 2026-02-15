@@ -9,12 +9,15 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    permissions:
+      contents: write
 
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
         submodules: recursive
+        fetch-depth: 0
 
     - name: Set up CMake
       uses: jwlawson/actions-setup-cmake@v2
@@ -27,10 +30,42 @@ jobs:
     - name: Build
       run: cmake --build ${{github.workspace}}/build --config Release
 
+    - name: Prepare Release Archive
+      shell: bash
+      run: |
+        mkdir -p release_staging
+        cp build/Release/demo.exe release_staging/
+        cp -r build/Release/resources release_staging/
+        cd release_staging
+        7z a ../physics-integration-test-windows.zip *
+        cd ..
+
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
         name: windows-binary
-        path: |
-          ${{github.workspace}}/build/Release/demo.exe
-          ${{github.workspace}}/build/Release/resources/
+        path: physics-integration-test-windows.zip
+
+    - name: Update Tag
+      if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+      shell: bash
+      run: |
+        git config user.name "github-actions"
+        git config user.email "github-actions@github.com"
+        git tag -f latest-preview
+        git push origin latest-preview --force
+
+    - name: Rolling Release
+      if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: latest-preview
+        name: Latest Preview (Rolling)
+        body: |
+          Automated rolling release of the latest successful build from the master branch.
+          
+          **Note:** This release is automatically updated.
+        prerelease: true
+        files: physics-integration-test-windows.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
