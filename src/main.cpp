@@ -38,11 +38,6 @@ void SpawnScene(ecs::World &world) {
   world.add(player, CharacterControllerConfig{});
   world.add(player, WorldTag{});
 
-  // 4. Camera
-  auto camera = world.create();
-  world.add(camera, MainCamera{});
-  world.add(camera, WorldTag{});
-
   // 3. Climbing Parkour with Inclined Planes
   struct Platform { 
     ecs::Vec3 pos; 
@@ -93,6 +88,7 @@ int main() {
   ecs::World world;
   PhysicsContext::InitJoltAllocator();
   world.set_resource(std::make_shared<PhysicsContext>());
+  world.set_resource(MainCamera{});
 
   PhysicsSystem::Register(world);
   CharacterSystem::Register(world);

@@ -41,10 +41,10 @@ void RenderSystem::Update(World& world) {
     Vector3 player_pos = {0, 0, 0};
     bool follow_mode = false;
 
-    world.single<MainCamera>([&](Entity, MainCamera& cam) {
-        camera = cam.raylib_camera;
-        follow_mode = cam.follow_mode;
-    });
+    if (auto* cam_ptr = world.try_resource<MainCamera>()) {
+        camera = cam_ptr->raylib_camera;
+        follow_mode = cam_ptr->follow_mode;
+    }
 
     world.single<PlayerTag, WorldTransform>([&](Entity, PlayerTag&, WorldTransform& wt) {
         player_pos = { wt.matrix.m[12], wt.matrix.m[13], wt.matrix.m[14] };
