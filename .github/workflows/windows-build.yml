@@ -24,11 +24,26 @@ jobs:
       with:
         cmake-version: '3.25.x'
 
+    - name: Cache Dependencies
+      id: cache-deps
+      uses: actions/cache@v4
+      with:
+        path: |
+          ${{github.workspace}}/build/_deps
+          ${{github.workspace}}/build/ecs_build
+        key: ${{ runner.os }}-deps-${{ hashFiles('**/CMakeLists.txt', '.gitmodules') }}
+        restore-keys: |
+          ${{ runner.os }}-deps-
+
     - name: Configure CMake
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=Release
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
 
     - name: Build
       run: cmake --build ${{github.workspace}}/build --config Release
+
+    - name: Run Tests
+      working-directory: ${{github.workspace}}/build
+      run: ctest -C Release --output-on-failure
 
     - name: Prepare Release Archive
       shell: bash
