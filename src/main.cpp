@@ -1,4 +1,5 @@
 #include "components.hpp"
+#include "assets.hpp"
 #include "physics_context.hpp"
 #include "pipeline.hpp"
 #include "systems/builder.hpp"
@@ -86,6 +87,11 @@ int main() {
   SetTargetFPS(60);
 
   ecs::World world;
+  
+  AssetResource assets;
+  assets.load();
+  world.set_resource(assets);
+
   PhysicsContext::InitJoltAllocator();
   world.set_resource(std::make_shared<PhysicsContext>());
   world.set_resource(MainCamera{});
@@ -145,6 +151,7 @@ int main() {
     pipeline.render(world);
   }
 
+  world.resource<AssetResource>().unload();
   CloseWindow();
   return 0;
 }

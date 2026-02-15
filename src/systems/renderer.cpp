@@ -1,5 +1,6 @@
 #include "renderer.hpp"
 #include "../components.hpp"
+#include "../assets.hpp"
 #include "../physics_context.hpp"
 #include <raylib.h>
 #include <raymath.h>
@@ -9,29 +10,8 @@
 using namespace ecs;
 
 void RenderSystem::Update(World& world) {
-    // --- Resources ---
-    static Shader lighting_shader;
-    static bool shader_loaded = false;
-    static int lightDirLoc, lightColorLoc, ambientLoc;
-    static int playerPosLoc, shadowRadiusLoc, shadowIntensityLoc;
-
-    if (!shader_loaded) {
-        lighting_shader = LoadShader("resources/shaders/lighting.vs", "resources/shaders/lighting.fs");
-        lightDirLoc = GetShaderLocation(lighting_shader, "lightDir");
-        lightColorLoc = GetShaderLocation(lighting_shader, "lightColor");
-        ambientLoc = GetShaderLocation(lighting_shader, "ambient");
-        playerPosLoc = GetShaderLocation(lighting_shader, "playerPos");
-        shadowRadiusLoc = GetShaderLocation(lighting_shader, "shadowRadius");
-        shadowIntensityLoc = GetShaderLocation(lighting_shader, "shadowIntensity");
-
-        Vector3 dir = Vector3Normalize({-0.5f, -1.0f, -0.3f});
-        SetShaderValue(lighting_shader, lightDirLoc, &dir, SHADER_UNIFORM_VEC3);
-        Vector4 color = {1.0f, 1.0f, 0.9f, 1.0f};
-        SetShaderValue(lighting_shader, lightColorLoc, &color, SHADER_UNIFORM_VEC4);
-        Vector4 ambient = {0.3f, 0.3f, 0.35f, 1.0f};
-        SetShaderValue(lighting_shader, ambientLoc, &ambient, SHADER_UNIFORM_VEC4);
-        shader_loaded = true;
-    }
+    auto* assets = world.try_resource<AssetResource>();
+    if (!assets) return;
 
     BeginDrawing();
     ClearBackground({35, 35, 40, 255}); 
@@ -51,16 +31,16 @@ void RenderSystem::Update(World& world) {
     });
 
     // 2. Update Shader Uniforms
-    SetShaderValue(lighting_shader, playerPosLoc, &player_pos, SHADER_UNIFORM_VEC3);
+    SetShaderValue(assets->lighting_shader, assets->playerPosLoc, &player_pos, SHADER_UNIFORM_VEC3);
     float radius = 0.7f;
     float intensity = 0.5f;
-    SetShaderValue(lighting_shader, shadowRadiusLoc, &radius, SHADER_UNIFORM_FLOAT);
-    SetShaderValue(lighting_shader, shadowIntensityLoc, &intensity, SHADER_UNIFORM_FLOAT);
+    SetShaderValue(assets->lighting_shader, assets->shadowRadiusLoc, &radius, SHADER_UNIFORM_FLOAT);
+    SetShaderValue(assets->lighting_shader, assets->shadowIntensityLoc, &intensity, SHADER_UNIFORM_FLOAT);
 
     // 3. Render Scene
     BeginMode3D(camera);
         DrawGrid(100, 2.0f);
-        BeginShaderMode(lighting_shader);
+        BeginShaderMode(assets->lighting_shader);
         world.each<WorldTransform, MeshRenderer>(
             [&](Entity e, WorldTransform& wt, MeshRenderer& mesh) {
                 rlPushMatrix();
