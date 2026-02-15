@@ -68,7 +68,14 @@ FetchContent_MakeAvailable(raylib)
 # --- Main Executable ---
 
 add_executable(
-  demo src/main.cpp # We will add other sources here as we create them
+  demo 
+  src/main.cpp 
+  src/systems/builder.cpp
+  src/systems/camera.cpp
+  src/systems/character.cpp
+  src/systems/gamepad.cpp
+  src/systems/physics.cpp
+  src/systems/renderer.cpp
 )
 
 # Debug Jolt Path
