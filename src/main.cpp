@@ -124,7 +124,7 @@ int main() {
 
     if (IsKeyPressed(KEY_R)) {
         std::vector<ecs::Entity> to_destroy;
-        world.each([&](ecs::Entity e) { to_destroy.push_back(e); });
+        world.each<WorldTransform>([&](ecs::Entity e, WorldTransform&) { to_destroy.push_back(e); });
         for (auto e : to_destroy) world.destroy(e);
         SpawnScene(world);
     }
