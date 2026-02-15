@@ -49,6 +49,7 @@ void SpawnScene(ecs::World &world) {
   world.add(ground, MeshRenderer{0, DARKGRAY});
   world.add(ground, BoxCollider{{50, 0.5f, 50}});
   world.add(ground, RigidBodyConfig{BodyType::Static});
+  world.add(ground, WorldTag{});
 
   // 2. Player
   auto player = world.create();
@@ -59,10 +60,12 @@ void SpawnScene(ecs::World &world) {
   world.add(player, PlayerInput{});
   world.add(player, PlayerState{});
   world.add(player, CharacterControllerConfig{});
+  world.add(player, WorldTag{});
 
   // 4. Camera
   auto camera = world.create();
   world.add(camera, MainCamera{});
+  world.add(camera, WorldTag{});
 
   // 3. Climbing Parkour with Inclined Planes
   struct Platform { 
@@ -103,6 +106,7 @@ void SpawnScene(ecs::World &world) {
       world.add(ent, MeshRenderer{0, p.color});
       world.add(ent, BoxCollider{{p.size.x*0.5f, p.size.y*0.5f, p.size.z*0.5f}});
       world.add(ent, RigidBodyConfig{BodyType::Static});
+      world.add(ent, WorldTag{});
   }
 }
 
@@ -124,7 +128,7 @@ int main() {
 
     if (IsKeyPressed(KEY_R)) {
         std::vector<ecs::Entity> to_destroy;
-        world.each([&](ecs::Entity e) { to_destroy.push_back(e); });
+        world.each<WorldTag>([&](ecs::Entity e, WorldTag&) { to_destroy.push_back(e); });
         for (auto e : to_destroy) world.destroy(e);
         world.deferred().flush(world); 
         SpawnScene(world);

@@ -33,7 +33,8 @@ public:
                     ecs::WorldTransform{},
                     MeshRenderer{0, MAROON},
                     BoxCollider{{size.x * 0.5f, size.y * 0.5f, size.z * 0.5f}},
-                    RigidBodyConfig{BodyType::Static}
+                    RigidBodyConfig{BodyType::Static},
+                    WorldTag{}
                 );
             }
         });

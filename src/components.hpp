@@ -127,3 +127,4 @@ struct PlayerState {
 };
 
 struct PlayerTag {};
+struct WorldTag {};
