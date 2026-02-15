@@ -74,6 +74,7 @@ add_executable(
   src/systems/camera.cpp
   src/systems/character.cpp
   src/systems/gamepad.cpp
+  src/systems/keyboard.cpp
   src/systems/physics.cpp
   src/systems/renderer.cpp
 )

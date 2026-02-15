@@ -1,9 +1,11 @@
 #include "components.hpp"
 #include "physics_context.hpp"
+#include "pipeline.hpp"
 #include "systems/builder.hpp"
 #include "systems/camera.hpp"
 #include "systems/character.hpp"
 #include "systems/gamepad.hpp"
+#include "systems/keyboard.hpp"
 #include "systems/physics.hpp"
 #include "systems/renderer.hpp"
 #include <ecs/ecs.hpp>
@@ -12,34 +14,8 @@
 #include <raylib.h>
 #include <raymath.h>
 
-void System_Input(ecs::World &world) {
-  world.single<PlayerInput>([&](ecs::Entity, PlayerInput &input) {
-    input.move_input = {0, 0};
-    input.look_input = {0, 0};
-    input.jump = false;
-    input.plant_platform = false;
-    input.trigger_val = 0.0f;
-
-    if (IsKeyDown(KEY_W)) input.move_input.y = 1.0f;
-    if (IsKeyDown(KEY_S)) input.move_input.y = -1.0f;
-    if (IsKeyDown(KEY_A)) input.move_input.x = -1.0f;
-    if (IsKeyDown(KEY_D)) input.move_input.x = 1.0f;
-    
-    if (IsKeyPressed(KEY_SPACE)) input.jump = true;
-    if (IsKeyPressed(KEY_E) || IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-        input.plant_platform = true;
-        input.trigger_val = 1.0f;
-    }
-
-    if (std::abs(input.move_input.x) > 0.1f || std::abs(input.move_input.y) > 0.1f) {
-      float len = std::sqrt(input.move_input.x * input.move_input.x + input.move_input.y * input.move_input.y);
-      input.move_input.x /= len;
-      input.move_input.y /= len;
-    }
-  });
-}
-
 ecs::Quat ToEcs(Quaternion q) { return {q.x, q.y, q.z, q.w}; }
+
 
 void SpawnScene(ecs::World &world) {
   // 1. Ground Plane
@@ -123,6 +99,31 @@ int main() {
 
   SpawnScene(world);
 
+  // --- Pipeline Configuration ---
+  ecs::Pipeline pipeline;
+  
+  // 1. Input Phase
+  pipeline.add_pre_update([](ecs::World& w, float) { KeyboardInputSystem::Update(w); });
+  pipeline.add_pre_update([](ecs::World& w, float) { GamepadInputSystem::Update(w); });
+
+  // 2. Logic Phase
+  pipeline.add_logic([](ecs::World& w, float) { PlatformBuilderSystem::Update(w); });
+  pipeline.add_logic([](ecs::World& w, float dt) { CameraSystem::Update(w, dt); });
+  pipeline.add_logic([](ecs::World& w, float dt) { CharacterSystem::Update(w, dt); });
+
+  // 3. Physics Phase (Fixed Step)
+  pipeline.add_physics([](ecs::World& w, float dt) { 
+      PhysicsSystem::Update(w, dt); 
+      ecs::propagate_transforms(w);
+  });
+
+  // 4. Render Phase
+  pipeline.add_render([](ecs::World& w, float) { RenderSystem::Update(w); });
+
+  // --- Main Loop ---
+  float accumulator = 0.0f;
+  const float fixed_dt = 1.0f / 60.0f;
+
   while (!WindowShouldClose()) {
     float dt = GetFrameTime();
 
@@ -134,16 +135,18 @@ int main() {
         SpawnScene(world);
     }
 
-    System_Input(world);
-    GamepadInputSystem::Update(world);
-    PlatformBuilderSystem::Update(world);
-    world.deferred().flush(world); // Create platforms before physics step
-    CameraSystem::Update(world, dt);
-    CharacterSystem::Update(world, dt);
-    PhysicsSystem::Update(world, dt);
-    ecs::propagate_transforms(world);
-    RenderSystem::Update(world);
-    world.deferred().flush(world); // Catch-all for any other deferred commands
+    // 1. Update Logic & Input
+    pipeline.update(world, dt);
+
+    // 2. Step Physics (Fixed Timestep)
+    accumulator += dt;
+    while (accumulator >= fixed_dt) {
+        pipeline.step_physics(world, fixed_dt);
+        accumulator -= fixed_dt;
+    }
+
+    // 3. Render
+    pipeline.render(world);
   }
 
   CloseWindow();
