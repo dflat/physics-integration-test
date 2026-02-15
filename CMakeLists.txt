@@ -65,6 +65,15 @@ set(BUILD_EXAMPLES
     CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(raylib)
 
+# 1. Catch2 (Testing)
+message(STATUS "Fetching Catch2...")
+FetchContent_Declare(
+  Catch2
+  GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+  GIT_TAG v3.4.0
+)
+FetchContent_MakeAvailable(Catch2)
+
 # --- Main Executable ---
 
 add_executable(
@@ -110,3 +119,12 @@ if(CMAKE_BUILD_TYPE MATCHES Release)
     target_compile_options(demo PRIVATE -O3)
   endif()
 endif()
+
+# --- Testing ---
+enable_testing()
+add_executable(unit_tests 
+    tests/main.cpp
+    tests/logic_tests.cpp
+)
+target_link_libraries(unit_tests PRIVATE ecs Catch2::Catch2WithMain)
+add_test(NAME AllTests COMMAND unit_tests)

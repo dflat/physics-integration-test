@@ -1,5 +1,6 @@
 #include "camera.hpp"
 #include "../components.hpp"
+#include "../math_util.hpp"
 #include <ecs/modules/transform.hpp>
 #include <raylib.h>
 #include <raymath.h>
@@ -90,13 +91,11 @@ void CameraSystem::Update(World& world, float dt) {
             if (speed_sq > 0.1f) {
                 JPH::Vec3 move_dir = cam.smoothed_vel.Normalized();
                 JPH::Vec3 cam_to_player(-sinf(cam.orbit_phi), 0, -cosf(cam.orbit_phi));
-                float alignment = move_dir.Dot(cam_to_player);
+                float alignment = engine::math::calculate_alignment(move_dir.GetX(), move_dir.GetZ(), cam_to_player.GetX(), cam_to_player.GetZ());
 
                 if (alignment > 0.0f) {
-                    target_phi = atan2f(-move_dir.GetX(), -move_dir.GetZ());
-                    float diff = target_phi - cam.orbit_phi;
-                    while (diff < -PI) diff += 2 * PI;
-                    while (diff > PI) diff -= 2 * PI;
+                    target_phi = engine::math::calculate_follow_angle(move_dir.GetX(), move_dir.GetZ());
+                    float diff = engine::math::normalize_angle(target_phi - cam.orbit_phi);
 
                     float alignment_weight = std::clamp(alignment, 0.0f, 1.0f);
                     float speed_factor = std::clamp(sqrtf(speed_sq) / 10.0f, 0.0f, 1.0f);
@@ -104,11 +103,9 @@ void CameraSystem::Update(World& world, float dt) {
                 }
             } else {
                 JPH::Vec3 ch_fwd = h.character->GetRotation() * JPH::Vec3::sAxisZ();
-                target_phi = atan2f(-ch_fwd.GetX(), -ch_fwd.GetZ());
+                target_phi = engine::math::calculate_follow_angle(ch_fwd.GetX(), ch_fwd.GetZ());
                 
-                float diff = target_phi - cam.orbit_phi;
-                while (diff < -PI) diff += 2 * PI;
-                while (diff > PI) diff -= 2 * PI;
+                float diff = engine::math::normalize_angle(target_phi - cam.orbit_phi);
                 cam.orbit_phi += diff * 1.0f * dt;
             }
             
