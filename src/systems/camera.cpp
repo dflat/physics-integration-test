@@ -19,11 +19,21 @@ void CameraSystem::Update(World& world, float dt) {
     if (!player_input || !cam_ptr) return;
     MainCamera& cam = *cam_ptr;
 
-    // 2. Determine active gamepads
-    static int active_gamepads[4];
+    // 2. Determine active gamepads (Filter out peripherals)
+    static int active_gamepads[8];
     int active_count = 0;
-    for (int i = 0; i < 4; i++) {
-        if (IsGamepadAvailable(i)) active_gamepads[active_count++] = i;
+    for (int i = 0; i < 8; i++) {
+        if (IsGamepadAvailable(i)) {
+            const char* name = GetGamepadName(i);
+            if (name) {
+                std::string n = name;
+                if (n.find("Glorious") != std::string::npos || n.find("Model D") != std::string::npos ||
+                    n.find("Trackpad") != std::string::npos || n.find("EZ System Control") != std::string::npos) {
+                    continue; 
+                }
+            }
+            active_gamepads[active_count++] = i;
+        }
     }
 
     // 3. Handle Input (Toggle & Manual Move)
