@@ -3,72 +3,64 @@
 #include <raylib.h>
 #include <cmath>
 #include <algorithm>
-#include <string>
 
 using namespace ecs;
 
 void GamepadInputSystem::Update(World& world) {
-    // 1. Find all potential controllers (up to 8 slots)
-    int active_gamepads[8];
-    int active_count = 0;
-    
-    for (int i = 0; i < 8; i++) {
-        if (IsGamepadAvailable(i)) {
-            const char* name = GetGamepadName(i);
-            if (name) {
-                std::string n = name;
-                // Heuristic: Ignore high-poll peripherals that masquerade as gamepads
-                if (n.find("Glorious") != std::string::npos || 
-                    n.find("Model D") != std::string::npos ||
-                    n.find("Trackpad") != std::string::npos ||
-                    n.find("EZ System Control") != std::string::npos) {
-                    continue; 
-                }
-            }
-            active_gamepads[active_count++] = i;
-            
-            static bool logged[8] = {false};
-            if (!logged[i]) {
-                TraceLog(LOG_INFO, "Gamepad %d ACCEPTED: %s", i, name);
-                logged[i] = true;
-            }
-        }
-    }
-
-    if (active_count == 0) return;
+    // We scan standard slots. 16 is plenty for any modern OS.
+    const int max_slots = 16;
+    const float deadzone = 0.15f;
 
     world.single<PlayerInput>([&](Entity, PlayerInput& input) {
-        for (int j = 0; j < active_count; j++) {
-            int i = active_gamepads[j];
+        for (int i = 0; i < max_slots; i++) {
+            if (!IsGamepadAvailable(i)) continue;
 
+            // Heuristic: A real modern gamepad should have at least 4 axes (2 sticks)
+            // and at least 6 buttons. This filters out most "gaming mice" masquerading as gamepads.
+            if (GetGamepadAxisCount(i) < 4) continue;
+
+            // 1. Sample Axes
             float lx = GetGamepadAxisMovement(i, GAMEPAD_AXIS_LEFT_X);
             float ly = GetGamepadAxisMovement(i, GAMEPAD_AXIS_LEFT_Y);
             float rx = GetGamepadAxisMovement(i, GAMEPAD_AXIS_RIGHT_X);
             float ry = GetGamepadAxisMovement(i, GAMEPAD_AXIS_RIGHT_Y);
-            
-            const float deadzone = 0.2f; // Slightly more aggressive deadzone
-            
-            // Only apply if there is actual movement. 
-            // This prevents a "dead" gamepad in another slot from overwriting your active input with 0.
-            if (std::abs(lx) > deadzone) input.move_input.x = lx;
-            if (std::abs(ly) > deadzone) input.move_input.y = -ly;
-            if (std::abs(rx) > deadzone) input.look_input.x = rx;
-            if (std::abs(ry) > deadzone) input.look_input.y = ry;
 
+            // 2. "Activity Wins" Logic
+            // We only apply this slot's values if the user is actually touching it.
+            // This prevents idle devices from zeroing out inputs from active ones.
+            bool is_active = (std::abs(lx) > deadzone || std::abs(ly) > deadzone || 
+                              std::abs(rx) > deadzone || std::abs(ry) > deadzone);
+
+            if (is_active) {
+                if (std::abs(lx) > deadzone) input.move_input.x = lx;
+                if (std::abs(ly) > deadzone) input.move_input.y = -ly; // Invert Y for world-space forward
+                if (std::abs(rx) > deadzone) input.look_input.x = rx;
+                if (std::abs(ry) > deadzone) input.look_input.y = ry;
+            }
+
+            // 3. Sample Buttons (Additive/OR logic)
+            // South button (Jump)
             if (IsGamepadButtonPressed(i, GAMEPAD_BUTTON_RIGHT_FACE_DOWN)) {
                 input.jump = true;
             }
 
-            // Right Trigger (Axis 4 or 5 usually)
+            // West button (Camera Follow Toggle)
+            if (IsGamepadButtonPressed(i, GAMEPAD_BUTTON_RIGHT_FACE_LEFT)) {
+                // Note: We don't have direct access to MainCamera here, 
+                // but the CameraSystem also polls gamepads for this toggle.
+            }
+
+            // Right Trigger (Plant Platform)
             float rt = GetGamepadAxisMovement(i, GAMEPAD_AXIS_RIGHT_TRIGGER);
-            // Remap from [-1, 1] to [0, 1] if it behaves like a standard trigger
-            float trigger = (rt + 1.0f) * 0.5f;
-            if (trigger > 0.5f) {
+            // Remap from [-1, 1] to [0, 1] for triggers that idle at -1.0
+            float trigger_normalized = (rt + 1.0f) * 0.5f;
+            if (trigger_normalized > 0.5f) {
                 input.plant_platform = true;
-                input.trigger_val = std::max(input.trigger_val, trigger);
+                input.trigger_val = std::max(input.trigger_val, trigger_normalized);
             }
         }
 
+        // 4. Final Input Normalization
         float move_mag_sq = input.move_input.x * input.move_input.x + input.move_input.y * input.move_input.y;
         if (move_mag_sq > 1.0f) {
             float mag = std::sqrt(move_mag_sq);

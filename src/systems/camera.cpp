@@ -19,19 +19,13 @@ void CameraSystem::Update(World& world, float dt) {
     if (!player_input || !cam_ptr) return;
     MainCamera& cam = *cam_ptr;
 
-    // 2. Determine active gamepads (Filter out peripherals)
-    static int active_gamepads[8];
+    // 2. Determine active gamepads (Capability-based filtering)
+    static int active_gamepads[16];
     int active_count = 0;
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < 16; i++) {
         if (IsGamepadAvailable(i)) {
-            const char* name = GetGamepadName(i);
-            if (name) {
-                std::string n = name;
-                if (n.find("Glorious") != std::string::npos || n.find("Model D") != std::string::npos ||
-                    n.find("Trackpad") != std::string::npos || n.find("EZ System Control") != std::string::npos) {
-                    continue; 
-                }
-            }
+            // Heuristic: A real gamepad has at least 4 axes
+            if (GetGamepadAxisCount(i) < 4) continue;
             active_gamepads[active_count++] = i;
         }
     }
