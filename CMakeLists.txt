@@ -59,7 +59,11 @@ message(STATUS "Fetching Raylib...")
 FetchContent_Declare(
   raylib
   GIT_REPOSITORY https://github.com/raysan5/raylib.git
-  GIT_TAG master)
+  GIT_TAG master
+  # Use sed to bump MAX_GAMEPADS directly in the source. 16 is the maximum supported by GLFW.
+  # The pattern looks for an active define at the start of the line.
+  PATCH_COMMAND sed -i "s/^[[:space:]]*#[[:space:]]*define[[:space:]]*MAX_GAMEPADS[[:space:]]*[0-9]*/#define MAX_GAMEPADS 16/" src/config.h
+)
 set(BUILD_EXAMPLES
     OFF
     CACHE BOOL "" FORCE)

@@ -1,4 +1,5 @@
 #include "camera.hpp"
+#include "gamepad.hpp"
 #include "../components.hpp"
 #include "../math_util.hpp"
 #include <ecs/modules/transform.hpp>
@@ -23,9 +24,7 @@ void CameraSystem::Update(World& world, float dt) {
     static int active_gamepads[16];
     int active_count = 0;
     for (int i = 0; i < 16; i++) {
-        if (IsGamepadAvailable(i)) {
-            // Heuristic: A real gamepad has at least 4 axes
-            if (GetGamepadAxisCount(i) < 4) continue;
+        if (GamepadInputSystem::IsRealGamepad(i)) {
             active_gamepads[active_count++] = i;
         }
     }

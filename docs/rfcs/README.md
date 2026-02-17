@@ -17,6 +17,7 @@ architectural changes for the game engine. Each RFC moves through a pipeline:
 | 0001 | Architectural Modularization | Implemented | [02-implemented/0001-architectural-overhaul.md](02-implemented/0001-architectural-overhaul.md) |
 | 0002 | Quality Assurance & Testing | Implemented | [02-implemented/0002-testing-suite.md](02-implemented/0002-testing-suite.md) |
 | 0003 | CI/CD & Rolling Releases | Implemented | [02-implemented/0003-ci-rolling-release.md](02-implemented/0003-ci-rolling-release.md) |
+| 0004 | Robust Linux Gamepad Discovery | Implemented | [02-implemented/0004-robust-gamepad-discovery.md](02-implemented/0004-robust-gamepad-discovery.md) |
 
 ## Workflow
 

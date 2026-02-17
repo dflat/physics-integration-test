@@ -4,4 +4,5 @@
 class GamepadInputSystem {
 public:
     static void Update(ecs::World& world);
+    static bool IsRealGamepad(int index);
 };
