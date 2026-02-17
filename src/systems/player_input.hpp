@@ -1,7 +1,7 @@
 #pragma once
 #include <ecs/ecs.hpp>
 
-class KeyboardInputSystem {
+class PlayerInputSystem {
 public:
     static void Update(ecs::World& world);
 };

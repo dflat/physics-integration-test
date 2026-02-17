@@ -1,8 +1,7 @@
 #pragma once
 #include <ecs/ecs.hpp>
 
-class GamepadInputSystem {
+class InputGatherSystem {
 public:
     static void Update(ecs::World& world);
-    static bool IsRealGamepad(int index);
 };

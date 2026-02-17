@@ -86,8 +86,8 @@ add_executable(
   src/systems/builder.cpp
   src/systems/camera.cpp
   src/systems/character.cpp
-  src/systems/gamepad.cpp
-  src/systems/keyboard.cpp
+  src/systems/input_gather.cpp
+  src/systems/player_input.cpp
   src/systems/physics.cpp
   src/systems/renderer.cpp
 )

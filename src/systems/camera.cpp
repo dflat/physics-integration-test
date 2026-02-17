@@ -1,7 +1,8 @@
 #include "camera.hpp"
-#include "gamepad.hpp"
+#include "player_input.hpp"
 #include "../components.hpp"
 #include "../math_util.hpp"
+#include "../input_state.hpp"
 #include <ecs/modules/transform.hpp>
 #include <raylib.h>
 #include <raymath.h>
@@ -11,6 +12,10 @@ using namespace ecs;
 
 void CameraSystem::Update(World& world, float dt) {
     // 1. Get Resources
+    auto* input_ptr = world.try_resource<InputRecord>();
+    if (!input_ptr) return;
+    const auto& record = *input_ptr;
+
     PlayerInput* player_input = nullptr;
     world.single<PlayerTag, PlayerInput>([&](Entity, PlayerTag&, PlayerInput& input) {
         player_input = &input;
@@ -20,27 +25,17 @@ void CameraSystem::Update(World& world, float dt) {
     if (!player_input || !cam_ptr) return;
     MainCamera& cam = *cam_ptr;
 
-    // 2. Determine active gamepads (Capability-based filtering)
-    static int active_gamepads[16];
-    int active_count = 0;
-    for (int i = 0; i < 16; i++) {
-        if (GamepadInputSystem::IsRealGamepad(i)) {
-            active_gamepads[active_count++] = i;
-        }
-    }
-
-    // 3. Handle Input (Toggle & Manual Move)
-    bool toggle_follow = IsKeyPressed(KEY_C);
+    // 2. Handle Input (Toggle & Manual Move)
+    bool toggle_follow = record.keys_pressed[KEY_C];
     
     int zoom_delta = 0;
-    if (IsKeyPressed(KEY_X)) zoom_delta++;
-    if (IsKeyPressed(KEY_Z)) zoom_delta--;
+    if (record.keys_pressed[KEY_X]) zoom_delta++;
+    if (record.keys_pressed[KEY_Z]) zoom_delta--;
 
-    for (int j = 0; j < active_count; j++) {
-        int i = active_gamepads[j];
-        if (IsGamepadButtonPressed(i, GAMEPAD_BUTTON_RIGHT_FACE_LEFT)) toggle_follow = true;
-        if (IsGamepadButtonPressed(i, GAMEPAD_BUTTON_LEFT_TRIGGER_1)) zoom_delta--;
-        if (IsGamepadButtonPressed(i, GAMEPAD_BUTTON_RIGHT_TRIGGER_1)) zoom_delta++;
+    for (const auto& gp : record.gamepads) {
+        if (gp.buttons_pressed[GAMEPAD_BUTTON_RIGHT_FACE_LEFT]) toggle_follow = true;
+        if (gp.buttons_pressed[GAMEPAD_BUTTON_LEFT_TRIGGER_1]) zoom_delta--;
+        if (gp.buttons_pressed[GAMEPAD_BUTTON_RIGHT_TRIGGER_1]) zoom_delta++;
     }
     if (toggle_follow) cam.follow_mode = !cam.follow_mode;
 
@@ -54,8 +49,8 @@ void CameraSystem::Update(World& world, float dt) {
     cam.orbit_distance = Lerp(cam.orbit_distance, target_dist, 5.0f * dt);
 
     // Manual Mouse Orbit
-    if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT)) {
-        Vector2 delta = GetMouseDelta();
+    if (record.mouse_buttons[MOUSE_BUTTON_RIGHT]) {
+        Vector2 delta = record.mouse_delta;
         cam.orbit_phi -= delta.x * 0.005f;
         cam.orbit_theta -= delta.y * 0.005f;
         cam.last_manual_move_time = 0.0f;
@@ -72,7 +67,7 @@ void CameraSystem::Update(World& world, float dt) {
     
     cam.orbit_theta = std::clamp(cam.orbit_theta, 0.1f, PI * 0.45f);
 
-    float wheel = GetMouseWheelMove();
+    float wheel = record.mouse_wheel;
     if (std::abs(wheel) > 0.1f) {
         cam.orbit_distance -= wheel * 2.0f;
         cam.orbit_distance = std::clamp(cam.orbit_distance, 5.0f, 80.0f);

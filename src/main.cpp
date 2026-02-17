@@ -5,8 +5,8 @@
 #include "systems/builder.hpp"
 #include "systems/camera.hpp"
 #include "systems/character.hpp"
-#include "systems/gamepad.hpp"
-#include "systems/keyboard.hpp"
+#include "systems/input_gather.hpp"
+#include "systems/player_input.hpp"
 #include "systems/physics.hpp"
 #include "systems/renderer.hpp"
 #include <ecs/ecs.hpp>
@@ -105,8 +105,8 @@ int main() {
   ecs::Pipeline pipeline;
   
   // 1. Input Phase
-  pipeline.add_pre_update([](ecs::World& w, float) { KeyboardInputSystem::Update(w); });
-  pipeline.add_pre_update([](ecs::World& w, float) { GamepadInputSystem::Update(w); });
+  pipeline.add_pre_update([](ecs::World& w, float) { InputGatherSystem::Update(w); });
+  pipeline.add_pre_update([](ecs::World& w, float) { PlayerInputSystem::Update(w); });
 
   // 2. Logic Phase
   pipeline.add_logic([](ecs::World& w, float) { PlatformBuilderSystem::Update(w); });
