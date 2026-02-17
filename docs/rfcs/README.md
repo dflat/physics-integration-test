@@ -18,6 +18,7 @@ architectural changes for the game engine. Each RFC moves through a pipeline:
 | 0002 | Quality Assurance & Testing | Implemented | [02-implemented/0002-testing-suite.md](02-implemented/0002-testing-suite.md) |
 | 0003 | CI/CD & Rolling Releases | Implemented | [02-implemented/0003-ci-rolling-release.md](02-implemented/0003-ci-rolling-release.md) |
 | 0004 | Robust Linux Gamepad Discovery | Implemented | [02-implemented/0004-robust-gamepad-discovery.md](02-implemented/0004-robust-gamepad-discovery.md) |
+| 0005 | Unified Input State | Implemented | [02-implemented/0005-unified-input-state.md](02-implemented/0005-unified-input-state.md) |
 
 ## Workflow
 
