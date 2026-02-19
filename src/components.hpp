@@ -5,24 +5,50 @@
 #include <ecs/ecs.hpp>
 #include <ecs/modules/transform.hpp>
 #include <memory>
-#include <raylib.h>
 
 // ---------------------------------------------------------------------------
-// Math Bridge
+// Math Bridge  (Jolt <-> ECS only; Raylib conversions live in consumer files)
 // ---------------------------------------------------------------------------
 namespace MathBridge {
     inline JPH::Vec3 ToJolt(const ecs::Vec3& v) { return {v.x, v.y, v.z}; }
     inline JPH::Quat ToJolt(const ecs::Quat& q) { return {q.x, q.y, q.z, q.w}; }
-    
+
     inline ecs::Vec3 FromJolt(const JPH::Vec3& v) { return {v.GetX(), v.GetY(), v.GetZ()}; }
     inline ecs::Quat FromJolt(const JPH::Quat& q) { return {q.GetX(), q.GetY(), q.GetZ(), q.GetW()}; }
-    // RVec3 is typedef to Vec3 in single precision, causing redefinition. Only define if Double Precision.
 #ifdef JPH_DOUBLE_PRECISION
-    inline ecs::Vec3 FromJolt(const JPH::RVec3& v) { return {static_cast<float>(v.GetX()), static_cast<float>(v.GetY()), static_cast<float>(v.GetZ())}; }
+    inline ecs::Vec3 FromJolt(const JPH::RVec3& v) {
+        return {static_cast<float>(v.GetX()), static_cast<float>(v.GetY()), static_cast<float>(v.GetZ())};
+    }
 #endif
+}
 
-    inline Vector3 ToRaylib(const ecs::Vec3& v) { return {v.x, v.y, v.z}; }
-    inline Quaternion ToRaylib(const ecs::Quat& q) { return {q.x, q.y, q.z, q.w}; }
+// ---------------------------------------------------------------------------
+// Render types  (no external library dependencies)
+// ---------------------------------------------------------------------------
+
+enum class ShapeType { Box, Sphere, Capsule };
+
+// RGBA colour stored as normalised floats [0, 1].
+struct Color4 {
+    float r = 1.0f, g = 1.0f, b = 1.0f, a = 1.0f;
+};
+
+// Named constants matching the Raylib palette used in the scene.
+namespace Colors {
+    inline constexpr Color4 White     = {1.000f, 1.000f, 1.000f, 1.0f};
+    inline constexpr Color4 LightGray = {0.784f, 0.784f, 0.784f, 1.0f};
+    inline constexpr Color4 Gray      = {0.510f, 0.510f, 0.510f, 1.0f};
+    inline constexpr Color4 DarkGray  = {0.314f, 0.314f, 0.314f, 1.0f};
+    inline constexpr Color4 Red       = {0.902f, 0.161f, 0.216f, 1.0f};
+    inline constexpr Color4 Maroon    = {0.745f, 0.129f, 0.216f, 1.0f};
+    inline constexpr Color4 Gold      = {1.000f, 0.796f, 0.000f, 1.0f};
+    inline constexpr Color4 Orange    = {1.000f, 0.631f, 0.000f, 1.0f};
+    inline constexpr Color4 Lime      = {0.000f, 0.620f, 0.184f, 1.0f};
+    inline constexpr Color4 DarkGreen = {0.000f, 0.459f, 0.173f, 1.0f};
+    inline constexpr Color4 SkyBlue   = {0.400f, 0.749f, 1.000f, 1.0f};
+    inline constexpr Color4 DarkBlue  = {0.000f, 0.322f, 0.675f, 1.0f};
+    inline constexpr Color4 Purple    = {0.784f, 0.478f, 1.000f, 1.0f};
+    inline constexpr Color4 Yellow    = {0.992f, 0.976f, 0.000f, 1.0f};
 }
 
 // ---------------------------------------------------------------------------
@@ -41,17 +67,17 @@ struct SphereCollider {
 
 // If present, the PhysicsSystem will try to create a Jolt Body for this entity
 struct RigidBodyConfig {
-    BodyType type = BodyType::Dynamic;
-    float mass = 1.0f;
-    float friction = 0.5f;
-    float restitution = 0.0f;
-    bool sensor = false;
+    BodyType type        = BodyType::Dynamic;
+    float    mass        = 1.0f;
+    float    friction    = 0.5f;
+    float    restitution = 0.0f;
+    bool     sensor      = false;
 };
 
 struct CharacterControllerConfig {
-    float height = 1.8f;
-    float radius = 0.4f;
-    float mass = 70.0f;
+    float height          = 1.8f;
+    float radius          = 0.4f;
+    float mass            = 70.0f;
     float max_slope_angle = 45.0f; // degrees
 };
 
@@ -59,16 +85,11 @@ struct CharacterControllerConfig {
 // Physics Runtime Handles (Managed by Systems)
 // ---------------------------------------------------------------------------
 
-// Holds the link to the internal Jolt simulation
 struct RigidBodyHandle {
     JPH::BodyID id;
 };
 
-// Holds the link to the Jolt CharacterVirtual
 struct CharacterHandle {
-    // We use a shared_ptr here because CharacterVirtual is a heavy class 
-    // that needs manual update/destruction.
-    // In a real engine, this might be a handle to a pool.
     std::shared_ptr<JPH::CharacterVirtual> character;
 };
 
@@ -77,66 +98,64 @@ struct CharacterHandle {
 // ---------------------------------------------------------------------------
 
 struct MeshRenderer {
-    // In a real engine, this would be AssetID mesh_id;
-    // For this prototype, we'll store basic shape info or a raw pointer to a Raylib model
-    // 0 = Box, 1 = Sphere, 2 = Capsule
-    int shape_type = 0; 
-    Color color = WHITE;
-    ecs::Vec3 scale_offset = {1,1,1}; // Visual scale multiplier
+    ShapeType shape_type   = ShapeType::Box;
+    Color4    color        = Colors::White;
+    ecs::Vec3 scale_offset = {1, 1, 1};
 };
 
 // ---------------------------------------------------------------------------
 // Gameplay / Input
 // ---------------------------------------------------------------------------
 
+// Semantic hardware intent. Written by PlayerInputSystem; read by CameraSystem
+// and CharacterInputSystem. Does NOT store camera-derived view directions.
 struct PlayerInput {
-    ecs::Vec2 move_input = {0,0}; // X, Y (WASD / Left Stick)
-    ecs::Vec2 look_input = {0,0}; // X, Y (Right Stick)
-    bool jump = false;
-    bool plant_platform = false;
-    float trigger_val = 0.0f;     // Added for axis edge detection
-    ecs::Vec3 view_forward = {0,0,1};
-    ecs::Vec3 view_right = {1,0,0};
+    ecs::Vec2 move_input     = {0, 0}; // X, Y (WASD / Left Stick)
+    ecs::Vec2 look_input     = {0, 0}; // X, Y (Right Stick)
+    bool      jump           = false;
+    bool      plant_platform = false;
+    float     trigger_val    = 0.0f;
 };
 
+// Camera orbit state and smoothing. Also serves as the authoritative source
+// for world-space view directions, written by CameraSystem each frame.
 struct MainCamera {
-    // State
-    float orbit_phi = 0.0f;
-    float orbit_theta = 0.6f;
+    // Orbit parameters
+    float orbit_phi      = 0.0f;
+    float orbit_theta    = 0.6f;
     float orbit_distance = 25.0f;
-    int zoom_index = 1; // 0=Tight, 1=Medium, 2=Wide
-    
-    // Smoothing (using Raylib types for direct use in math functions)
-    Vector3 lerp_pos = {0, 10, 20};
-    Vector3 lerp_target = {0, 0, 0};
-    JPH::Vec3 smoothed_vel = JPH::Vec3::sZero();
-    
+    int   zoom_index     = 1; // 0=Tight, 1=Medium, 2=Wide
+
+    // Smoothing buffers (pure data — no engine types)
+    ecs::Vec3 lerp_pos    = {0, 10, 20};
+    ecs::Vec3 lerp_target = {0,  0,  0};
+    ecs::Vec3 smoothed_vel = {0,  0,  0};
+
     // Logic state
     float last_manual_move_time = 0.0f;
-    bool follow_mode = false;
-    
-    // Final Output (Consumed by Renderer)
-    Camera3D raylib_camera = {0};
+    bool  follow_mode           = false;
+
+    // View directions — written by CameraSystem, read by CharacterInputSystem.
+    ecs::Vec3 view_forward = {0, 0, 1};
+    ecs::Vec3 view_right   = {1, 0, 0};
 };
 
 // Written by CharacterInputSystem; read by CharacterStateSystem and CharacterMotorSystem.
-// Represents what the character intends to do this frame, independent of input source.
 struct CharacterIntent {
-    ecs::Vec3 move_dir         = {0, 0, 0}; // World-space, magnitude <= 1
-    ecs::Vec3 look_dir         = {0, 0, 1}; // World-space unit vector
+    ecs::Vec3 move_dir         = {0, 0, 0};
+    ecs::Vec3 look_dir         = {0, 0, 1};
     bool      jump_requested   = false;
     bool      sprint_requested = false;
 };
 
 // Written by CharacterStateSystem; read by CharacterMotorSystem.
-// Authoritative physics-side state for a character entity.
 struct CharacterState {
     enum class Mode { Grounded, Airborne };
 
     Mode  mode         = Mode::Grounded;
     int   jump_count   = 0;
     float air_time     = 0.0f;
-    float jump_impulse = 0.0f; // Non-zero the frame a jump fires; consumed by MotorSystem
+    float jump_impulse = 0.0f;
 };
 
 // Builder-specific player state. Owned by PlatformBuilderSystem.
@@ -146,4 +165,4 @@ struct PlayerState {
 };
 
 struct PlayerTag {};
-struct WorldTag {};
+struct WorldTag  {};

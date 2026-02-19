@@ -1,6 +1,6 @@
 # RFC-0007: Component Type Purity
 
-* **Status:** Proposal
+* **Status:** Implemented
 * **Date:** February 2026
 * **Depends on:** RFC-0006 (introduces `CharacterInputSystem`, which drives one
   migration in this RFC)

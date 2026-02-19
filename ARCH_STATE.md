@@ -32,7 +32,7 @@ Systems are stateless logic blocks that operate on component queries:
 | `InputGatherSystem` | Pre-Update | Raylib hardware | `InputRecord` resource |
 | `PlayerInputSystem` | Pre-Update | `InputRecord` | `PlayerInput` |
 | `CameraSystem` | Logic | `InputRecord`, `PlayerInput`, `CharacterHandle`, `WorldTransform` | `MainCamera` (including view dirs) |
-| `CharacterInputSystem` | Logic | `PlayerInput` (view dirs + move/jump) | `CharacterIntent` |
+| `CharacterInputSystem` | Logic | `MainCamera` (view dirs), `PlayerInput` (move/jump) | `CharacterIntent` |
 | `CharacterStateSystem` | Logic | `CharacterHandle` (ground query), `CharacterIntent` | `CharacterState` |
 | `PlatformBuilderSystem` | Logic | `PlayerInput`, `PlayerState`, `WorldTransform` | Deferred entity creation |
 | `CharacterMotorSystem` | Logic | `CharacterIntent`, `CharacterState`, `CharacterHandle` | Jolt velocities; `LocalTransform`, `WorldTransform` |
@@ -52,7 +52,7 @@ Render:      RenderSystem
 ```
 
 The Logic ordering is a hard constraint:
-- `Camera` must precede `CharacterInput` — it writes `view_forward`/`view_right` into `MainCamera`, which `CharacterInputSystem` reads to project 2D move input into world space.
+- `Camera` must precede `CharacterInput` — it writes `view_forward`/`view_right` to the `MainCamera` resource, which `CharacterInputSystem` reads to project 2D move input into world space.
 - `CharacterState` must precede `CharacterMotor` — the motor reads `jump_impulse` set by the state machine.
 - `CharacterMotor` must be the last Logic system — it calls `ExtendedUpdate` on the Jolt character, which must run before the physics step.
 

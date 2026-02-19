@@ -28,7 +28,7 @@ void PlatformBuilderSystem::Update(World& world) {
             world.deferred().create_with(
                 ecs::LocalTransform{spawn_pos, {0,0,0,1}, size},
                 ecs::WorldTransform{},
-                MeshRenderer{0, MAROON},
+                MeshRenderer{ShapeType::Box, Colors::Maroon},
                 BoxCollider{{size.x * 0.5f, size.y * 0.5f, size.z * 0.5f}},
                 RigidBodyConfig{BodyType::Static},
                 WorldTag{}

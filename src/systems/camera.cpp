@@ -1,5 +1,4 @@
 #include "camera.hpp"
-#include "player_input.hpp"
 #include "../components.hpp"
 #include "../math_util.hpp"
 #include "../input_state.hpp"
@@ -9,6 +8,10 @@
 #include <algorithm>
 
 using namespace ecs;
+
+// Local helpers: ecs::Vec3 <-> Raylib Vector3
+static inline Vector3 to_v3(const ecs::Vec3& v) { return {v.x, v.y, v.z}; }
+static inline ecs::Vec3 from_v3(const Vector3& v) { return {v.x, v.y, v.z}; }
 
 void CameraSystem::Update(World& world, float dt) {
     // 1. Get Resources
@@ -27,14 +30,14 @@ void CameraSystem::Update(World& world, float dt) {
 
     // 2. Handle Input (Toggle & Manual Move)
     bool toggle_follow = record.keys_pressed[KEY_C];
-    
+
     int zoom_delta = 0;
     if (record.keys_pressed[KEY_X]) zoom_delta++;
     if (record.keys_pressed[KEY_Z]) zoom_delta--;
 
     for (const auto& gp : record.gamepads) {
         if (gp.buttons_pressed[GAMEPAD_BUTTON_RIGHT_FACE_LEFT]) toggle_follow = true;
-        if (gp.buttons_pressed[GAMEPAD_BUTTON_LEFT_TRIGGER_1]) zoom_delta--;
+        if (gp.buttons_pressed[GAMEPAD_BUTTON_LEFT_TRIGGER_1])  zoom_delta--;
         if (gp.buttons_pressed[GAMEPAD_BUTTON_RIGHT_TRIGGER_1]) zoom_delta++;
     }
     if (toggle_follow) cam.follow_mode = !cam.follow_mode;
@@ -44,90 +47,94 @@ void CameraSystem::Update(World& world, float dt) {
         cam.last_manual_move_time = 0.0f;
     }
 
-    static const float zoom_levels[] = { 10.0f, 25.0f, 50.0f };
-    float target_dist = zoom_levels[cam.zoom_index];
-    cam.orbit_distance = Lerp(cam.orbit_distance, target_dist, 5.0f * dt);
+    static const float zoom_levels[] = {10.0f, 25.0f, 50.0f};
+    cam.orbit_distance = Lerp(cam.orbit_distance, zoom_levels[cam.zoom_index], 5.0f * dt);
 
     // Manual Mouse Orbit
     if (record.mouse_buttons[MOUSE_BUTTON_RIGHT]) {
-        Vector2 delta = record.mouse_delta;
-        cam.orbit_phi -= delta.x * 0.005f;
-        cam.orbit_theta -= delta.y * 0.005f;
+        cam.orbit_phi   -= record.mouse_delta.x * 0.005f;
+        cam.orbit_theta -= record.mouse_delta.y * 0.005f;
         cam.last_manual_move_time = 0.0f;
-    } 
+    }
     // Manual Gamepad Orbit
-    else if (std::abs(player_input->look_input.x) > 0.01f || std::abs(player_input->look_input.y) > 0.01f) {
-        cam.orbit_phi -= player_input->look_input.x * 2.5f * dt;
+    else if (std::abs(player_input->look_input.x) > 0.01f ||
+             std::abs(player_input->look_input.y) > 0.01f) {
+        cam.orbit_phi   -= player_input->look_input.x * 2.5f * dt;
         cam.orbit_theta += player_input->look_input.y * 2.5f * dt;
         cam.last_manual_move_time = 0.0f;
     }
     else {
         cam.last_manual_move_time += dt;
     }
-    
+
     cam.orbit_theta = std::clamp(cam.orbit_theta, 0.1f, PI * 0.45f);
 
-    float wheel = record.mouse_wheel;
-    if (std::abs(wheel) > 0.1f) {
-        cam.orbit_distance -= wheel * 2.0f;
-        cam.orbit_distance = std::clamp(cam.orbit_distance, 5.0f, 80.0f);
+    if (std::abs(record.mouse_wheel) > 0.1f) {
+        cam.orbit_distance -= record.mouse_wheel * 2.0f;
+        cam.orbit_distance  = std::clamp(cam.orbit_distance, 5.0f, 80.0f);
         cam.last_manual_move_time = 0.0f;
     }
 
-    // 4. Follow Logic
-    world.single<PlayerTag, WorldTransform, CharacterHandle>([&](Entity, PlayerTag&, WorldTransform& wt, CharacterHandle& h) {
-        Vector3 player_pos = { wt.matrix.m[12], wt.matrix.m[13], wt.matrix.m[14] };
+    // 3. Follow Logic
+    world.single<PlayerTag, WorldTransform, CharacterHandle>(
+        [&](Entity, PlayerTag&, WorldTransform& wt, CharacterHandle& h) {
+            Vector3 player_pos = {wt.matrix.m[12], wt.matrix.m[13], wt.matrix.m[14]};
 
-        if (cam.follow_mode && cam.last_manual_move_time > 1.0f) {
-            JPH::Vec3 vel = h.character->GetLinearVelocity();
-            vel.SetY(0);
-            cam.smoothed_vel += (vel - cam.smoothed_vel) * 5.0f * dt;
+            if (cam.follow_mode && cam.last_manual_move_time > 1.0f) {
+                // Smooth the character's horizontal velocity for stable follow
+                JPH::Vec3 vel = h.character->GetLinearVelocity();
+                vel.SetY(0);
+                JPH::Vec3 sv = MathBridge::ToJolt(cam.smoothed_vel);
+                sv += (vel - sv) * 5.0f * dt;
+                cam.smoothed_vel = MathBridge::FromJolt(sv);
 
-            static float target_phi = 0.0f;
+                static float target_phi = 0.0f;
 
-            float speed_sq = cam.smoothed_vel.LengthSq();
-            if (speed_sq > 0.1f) {
-                JPH::Vec3 move_dir = cam.smoothed_vel.Normalized();
-                JPH::Vec3 cam_to_player(-sinf(cam.orbit_phi), 0, -cosf(cam.orbit_phi));
-                float alignment = engine::math::calculate_alignment(move_dir.GetX(), move_dir.GetZ(), cam_to_player.GetX(), cam_to_player.GetZ());
+                float speed_sq = sv.LengthSq();
+                if (speed_sq > 0.1f) {
+                    JPH::Vec3 move_dir     = sv.Normalized();
+                    JPH::Vec3 cam_to_player(-sinf(cam.orbit_phi), 0, -cosf(cam.orbit_phi));
+                    float alignment = engine::math::calculate_alignment(
+                        move_dir.GetX(), move_dir.GetZ(),
+                        cam_to_player.GetX(), cam_to_player.GetZ());
 
-                if (alignment > 0.0f) {
-                    target_phi = engine::math::calculate_follow_angle(move_dir.GetX(), move_dir.GetZ());
-                    float diff = engine::math::normalize_angle(target_phi - cam.orbit_phi);
+                    if (alignment > 0.0f) {
+                        target_phi = engine::math::calculate_follow_angle(
+                            move_dir.GetX(), move_dir.GetZ());
+                        float diff = engine::math::normalize_angle(target_phi - cam.orbit_phi);
 
-                    float alignment_weight = std::clamp(alignment, 0.0f, 1.0f);
-                    float speed_factor = std::clamp(sqrtf(speed_sq) / 10.0f, 0.0f, 1.0f);
-                    cam.orbit_phi += diff * 5.0f * alignment_weight * speed_factor * dt;
+                        float aw = std::clamp(alignment, 0.0f, 1.0f);
+                        float sf = std::clamp(sqrtf(speed_sq) / 10.0f, 0.0f, 1.0f);
+                        cam.orbit_phi += diff * 5.0f * aw * sf * dt;
+                    }
+                } else {
+                    JPH::Vec3 ch_fwd = h.character->GetRotation() * JPH::Vec3::sAxisZ();
+                    target_phi = engine::math::calculate_follow_angle(ch_fwd.GetX(), ch_fwd.GetZ());
+                    cam.orbit_phi += engine::math::normalize_angle(target_phi - cam.orbit_phi) * 1.0f * dt;
                 }
-            } else {
-                JPH::Vec3 ch_fwd = h.character->GetRotation() * JPH::Vec3::sAxisZ();
-                target_phi = engine::math::calculate_follow_angle(ch_fwd.GetX(), ch_fwd.GetZ());
-                
-                float diff = engine::math::normalize_angle(target_phi - cam.orbit_phi);
-                cam.orbit_phi += diff * 1.0f * dt;
+
+                cam.orbit_theta = Lerp(cam.orbit_theta, 1.1f, 2.0f * dt);
             }
-            
-            cam.orbit_theta = Lerp(cam.orbit_theta, 1.1f, 2.0f * dt);
-        }
 
-        // 5. Finalize Transform
-        float x = cam.orbit_distance * sinf(cam.orbit_theta) * sinf(cam.orbit_phi);
-        float y = cam.orbit_distance * cosf(cam.orbit_theta);
-        float z = cam.orbit_distance * sinf(cam.orbit_theta) * cosf(cam.orbit_phi);
+            // 4. Finalize position via lerp
+            float x = cam.orbit_distance * sinf(cam.orbit_theta) * sinf(cam.orbit_phi);
+            float y = cam.orbit_distance * cosf(cam.orbit_theta);
+            float z = cam.orbit_distance * sinf(cam.orbit_theta) * cosf(cam.orbit_phi);
 
-        cam.lerp_pos = Vector3Lerp(cam.lerp_pos, Vector3Add(player_pos, {x, y, z}), 8.0f * dt);
-        cam.lerp_target = Vector3Lerp(cam.lerp_target, player_pos, 12.0f * dt);
+            cam.lerp_pos    = from_v3(Vector3Lerp(to_v3(cam.lerp_pos),
+                                                   Vector3Add(player_pos, {x, y, z}),
+                                                   8.0f * dt));
+            cam.lerp_target = from_v3(Vector3Lerp(to_v3(cam.lerp_target),
+                                                   player_pos,
+                                                   12.0f * dt));
 
-        cam.raylib_camera.position = cam.lerp_pos;
-        cam.raylib_camera.target = cam.lerp_target;
-        cam.raylib_camera.up = {0, 1, 0};
-        cam.raylib_camera.fovy = 45.0f;
-        cam.raylib_camera.projection = CAMERA_PERSPECTIVE;
+            // 5. Compute and store view directions for CharacterInputSystem
+            Vector3 fwd = Vector3Normalize(
+                Vector3Subtract(to_v3(cam.lerp_target), to_v3(cam.lerp_pos)));
+            Vector3 up  = {0, 1, 0};
+            Vector3 right = Vector3CrossProduct(fwd, up);
 
-        // Sync back to input for movement system
-        Vector3 fwd = Vector3Normalize(Vector3Subtract(cam.raylib_camera.target, cam.raylib_camera.position));
-        Vector3 right = Vector3CrossProduct(fwd, cam.raylib_camera.up);
-        player_input->view_forward = {fwd.x, fwd.y, fwd.z};
-        player_input->view_right = {right.x, right.y, right.z};
-    });
+            cam.view_forward = from_v3(fwd);
+            cam.view_right   = from_v3(right);
+        });
 }
