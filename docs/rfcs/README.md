@@ -19,6 +19,8 @@ architectural changes for the game engine. Each RFC moves through a pipeline:
 | 0003 | CI/CD & Rolling Releases | Implemented | [02-implemented/0003-ci-rolling-release.md](02-implemented/0003-ci-rolling-release.md) |
 | 0004 | Robust Linux Gamepad Discovery | Implemented | [02-implemented/0004-robust-gamepad-discovery.md](02-implemented/0004-robust-gamepad-discovery.md) |
 | 0005 | Unified Input State | Implemented | [02-implemented/0005-unified-input-state.md](02-implemented/0005-unified-input-state.md) |
+| 0006 | Character System Decomposition | Implemented | [02-implemented/0006-character-system-decomposition.md](02-implemented/0006-character-system-decomposition.md) |
+| 0007 | Component Type Purity | Proposal | [00-proposals/0007-component-type-purity.md](00-proposals/0007-component-type-purity.md) |
 
 ## Workflow
 

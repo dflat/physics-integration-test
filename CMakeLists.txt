@@ -85,7 +85,9 @@ add_executable(
   src/main.cpp 
   src/systems/builder.cpp
   src/systems/camera.cpp
-  src/systems/character.cpp
+  src/systems/character_input.cpp
+  src/systems/character_state.cpp
+  src/systems/character_motor.cpp
   src/systems/input_gather.cpp
   src/systems/player_input.cpp
   src/systems/physics.cpp
@@ -126,7 +128,7 @@ endif()
 
 # --- Testing ---
 enable_testing()
-add_executable(unit_tests 
+add_executable(unit_tests
     tests/main.cpp
     tests/logic_tests.cpp
 )

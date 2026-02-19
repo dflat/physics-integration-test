@@ -2,6 +2,12 @@
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include "../src/math_util.hpp"
 
+// CharacterStateSystem::apply_state tests are deferred to RFC-0007.
+// components.hpp currently includes <raylib.h> and Jolt headers, which prevents
+// headless compilation. RFC-0007 (Component Type Purity) removes those dependencies,
+// at which point apply_state can be exercised from the test target without linking
+// the full engine stack.
+
 using namespace engine::math;
 
 TEST_CASE("Angle Normalization", "[math]") {
@@ -41,12 +47,13 @@ TEST_CASE("Alignment (Dot Product) Calculation", "[math]") {
     SECTION("Perfect alignment") {
         CHECK(calculate_alignment(0, 1, 0, 1) == 1.0f);
     }
-    
+
     SECTION("Opposite alignment") {
         CHECK(calculate_alignment(0, 1, 0, -1) == -1.0f);
     }
-    
+
     SECTION("Perpendicular") {
         CHECK(calculate_alignment(1, 0, 0, 1) == 0.0f);
     }
 }
+

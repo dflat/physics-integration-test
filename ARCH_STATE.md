@@ -13,31 +13,48 @@ Data is stored in POD (Plain Old Data) structures within `src/components.hpp`:
 | `LocalTransform` | Local PRS (Position, Rotation, Scale). |
 | `WorldTransform` | Computed world matrix (Synced with Physics). |
 | `RigidBodyConfig` | Authoring data for Jolt body creation. |
-| `CharacterControllerConfig` | Settings for the Virtual Character (mass, slope limit). |
-| `PlayerInput` | Unified input state (Movement, Look, Jump, Build). |
-| `PlayerState` | Runtime gameplay state (Jump counts, build cooldowns). |
-| `MainCamera` | Persistent camera state (Orbit angles, smoothing buffers). |
-| `MeshRenderer` | Visual representation data (Shape type, Color). |
-| `WorldTag` | Marker for entities that should be destroyed on scene reset. |
+| `RigidBodyHandle` | Runtime Jolt BodyID, managed by PhysicsSystem lifecycle hooks. |
+| `CharacterControllerConfig` | Authoring data for the Virtual Character (mass, slope limit). |
+| `CharacterHandle` | Runtime Jolt CharacterVirtual, managed by CharacterMotorSystem. |
+| `CharacterIntent` | World-space move/look intent for this frame. Written by CharacterInputSystem, read by CharacterStateSystem and CharacterMotorSystem. |
+| `CharacterState` | Physics-side character state (mode, jump count, air time, jump impulse). Written by CharacterStateSystem, read by CharacterMotorSystem. |
+| `PlayerInput` | Semantic hardware intent (move, look, jump, build). Written by PlayerInputSystem. |
+| `PlayerState` | Builder-specific runtime state (cooldown, trigger edge). Owned by PlatformBuilderSystem. |
+| `MainCamera` | Persistent camera state (orbit angles, smoothing buffers, view directions). |
+| `MeshRenderer` | Visual representation data (shape type, color, scale offset). |
+| `WorldTag` | Marker for entities destroyed on scene reset. |
 
 ## 3. System Responsibilities
 Systems are stateless logic blocks that operate on component queries:
 
-- **`GamepadInputSystem`**: Aggregates input from all hardware slots into `PlayerInput`.
-- **`PlatformBuilderSystem`**: Monitors `PlayerInput` and uses `CommandBuffer` to safely instantiate platform entities beneath the player.
-- **`CameraSystem`**: Implements "Smart Follow" and manual orbit logic. It calculates the final `Camera3D` state and syncs view vectors back to `PlayerInput`.
-- **`CharacterSystem`**: Manages the `JPH::CharacterVirtual` life-cycle. It applies locomotion logic, handles "Coyote Time" jumping, and performs `ExtendedUpdate` for ground adherence.
-- **`PhysicsSystem`**: Wraps the Jolt world step and synchronizes `JPH::Body` transforms back into ECS `WorldTransform` components.
-- **`RenderSystem`**: A pure consumer system that draws the world using Raylib and custom GLSL shaders based on the state in `MainCamera` and `MeshRenderer`.
+| System | Phase | Reads | Writes |
+| :--- | :--- | :--- | :--- |
+| `InputGatherSystem` | Pre-Update | Raylib hardware | `InputRecord` resource |
+| `PlayerInputSystem` | Pre-Update | `InputRecord` | `PlayerInput` |
+| `CameraSystem` | Logic | `InputRecord`, `PlayerInput`, `CharacterHandle`, `WorldTransform` | `MainCamera` (including view dirs) |
+| `CharacterInputSystem` | Logic | `PlayerInput` (view dirs + move/jump) | `CharacterIntent` |
+| `CharacterStateSystem` | Logic | `CharacterHandle` (ground query), `CharacterIntent` | `CharacterState` |
+| `PlatformBuilderSystem` | Logic | `PlayerInput`, `PlayerState`, `WorldTransform` | Deferred entity creation |
+| `CharacterMotorSystem` | Logic | `CharacterIntent`, `CharacterState`, `CharacterHandle` | Jolt velocities; `LocalTransform`, `WorldTransform` |
+| `PhysicsSystem` | Physics (60 Hz) | `RigidBodyConfig`, `LocalTransform` | `RigidBodyHandle`; syncs `WorldTransform` from Jolt |
+| `RenderSystem` | Render | `WorldTransform`, `MeshRenderer`, `MainCamera`, `AssetResource` | — (pure consumer) |
 
 ## 4. Data Flow & Execution Order
-Each frame in `main.cpp` follows a strict sequence to ensure data consistency:
+Each frame follows a strict four-phase sequence:
 
-1.  **Input Phase**: `System_Input` (KBM) -> `GamepadInputSystem`.
-2.  **Creation Phase**: `PlatformBuilderSystem` -> `world.deferred().flush()`. (Platforms must exist before physics).
-3.  **Logic Phase**: `CameraSystem` (Calculates view vectors) -> `CharacterSystem` (Uses view vectors for move direction).
-4.  **Simulation Phase**: `PhysicsSystem::Update` (Step Jolt) -> `ecs::propagate_transforms`.
-5.  **Presentation Phase**: `RenderSystem::Update` -> `world.deferred().flush()` (Cleanup).
+```
+Pre-Update:  InputGather → PlayerInput
+Logic:       Camera → CharacterInput → CharacterState → PlatformBuilder → CharacterMotor
+             └─ deferred().flush() (spawned platforms materialise before physics)
+Physics:     PhysicsSystem (60 Hz fixed step) → propagate_transforms
+Render:      RenderSystem
+             └─ deferred().flush() (cleanup)
+```
+
+The Logic ordering is a hard constraint:
+- `Camera` must precede `CharacterInput` — it writes `view_forward`/`view_right` into `MainCamera`, which `CharacterInputSystem` reads to project 2D move input into world space.
+- `CharacterState` must precede `CharacterMotor` — the motor reads `jump_impulse` set by the state machine.
+- `CharacterMotor` must be the last Logic system — it calls `ExtendedUpdate` on the Jolt character, which must run before the physics step.
 
 ## 5. Dependency Management
 - **ECS**: Internal header-only library managed as a **Git Submodule** in `extern/ecs`.

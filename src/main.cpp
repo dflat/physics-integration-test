@@ -4,7 +4,9 @@
 #include "pipeline.hpp"
 #include "systems/builder.hpp"
 #include "systems/camera.hpp"
-#include "systems/character.hpp"
+#include "systems/character_input.hpp"
+#include "systems/character_state.hpp"
+#include "systems/character_motor.hpp"
 #include "systems/input_gather.hpp"
 #include "systems/player_input.hpp"
 #include "systems/physics.hpp"
@@ -97,7 +99,9 @@ int main() {
   world.set_resource(MainCamera{});
 
   PhysicsSystem::Register(world);
-  CharacterSystem::Register(world);
+  CharacterInputSystem::Register(world);
+  CharacterStateSystem::Register(world);
+  CharacterMotorSystem::Register(world);
 
   SpawnScene(world);
 
@@ -109,9 +113,13 @@ int main() {
   pipeline.add_pre_update([](ecs::World& w, float) { PlayerInputSystem::Update(w); });
 
   // 2. Logic Phase
-  pipeline.add_logic([](ecs::World& w, float) { PlatformBuilderSystem::Update(w); });
+  // Order matters: Camera writes view dirs → CharacterInput reads them → CharacterState
+  // reads intent → CharacterMotor applies forces (must be last, before Physics).
   pipeline.add_logic([](ecs::World& w, float dt) { CameraSystem::Update(w, dt); });
-  pipeline.add_logic([](ecs::World& w, float dt) { CharacterSystem::Update(w, dt); });
+  pipeline.add_logic([](ecs::World& w, float dt) { CharacterInputSystem::Update(w, dt); });
+  pipeline.add_logic([](ecs::World& w, float dt) { CharacterStateSystem::Update(w, dt); });
+  pipeline.add_logic([](ecs::World& w, float)    { PlatformBuilderSystem::Update(w); });
+  pipeline.add_logic([](ecs::World& w, float dt) { CharacterMotorSystem::Update(w, dt); });
 
   // 3. Physics Phase (Fixed Step)
   pipeline.add_physics([](ecs::World& w, float dt) { 

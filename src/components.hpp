@@ -119,11 +119,30 @@ struct MainCamera {
     Camera3D raylib_camera = {0};
 };
 
+// Written by CharacterInputSystem; read by CharacterStateSystem and CharacterMotorSystem.
+// Represents what the character intends to do this frame, independent of input source.
+struct CharacterIntent {
+    ecs::Vec3 move_dir         = {0, 0, 0}; // World-space, magnitude <= 1
+    ecs::Vec3 look_dir         = {0, 0, 1}; // World-space unit vector
+    bool      jump_requested   = false;
+    bool      sprint_requested = false;
+};
+
+// Written by CharacterStateSystem; read by CharacterMotorSystem.
+// Authoritative physics-side state for a character entity.
+struct CharacterState {
+    enum class Mode { Grounded, Airborne };
+
+    Mode  mode         = Mode::Grounded;
+    int   jump_count   = 0;
+    float air_time     = 0.0f;
+    float jump_impulse = 0.0f; // Non-zero the frame a jump fires; consumed by MotorSystem
+};
+
+// Builder-specific player state. Owned by PlatformBuilderSystem.
 struct PlayerState {
-    int jump_count = 0;
-    float air_time = 0.0f;
-    float build_cooldown = 0.0f;
-    bool trigger_was_down = false;
+    float build_cooldown   = 0.0f;
+    bool  trigger_was_down = false;
 };
 
 struct PlayerTag {};
