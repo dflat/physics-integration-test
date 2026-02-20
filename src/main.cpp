@@ -1,4 +1,5 @@
 #include "components.hpp"
+#include "events.hpp"
 #include "assets.hpp"
 #include "physics_context.hpp"
 #include "pipeline.hpp"
@@ -101,12 +102,21 @@ int main() {
   CharacterStateSystem::Register(world);
   CharacterMotorSystem::Register(world);
 
+  // --- Event Bus Setup ---
+  world.set_resource(EventRegistry{});
+  {
+    auto& reg = world.resource<EventRegistry>();
+    reg.register_queue<JumpEvent>(world);
+    reg.register_queue<LandEvent>(world);
+  }
+
   SpawnScene(world);
 
   // --- Pipeline Configuration ---
   ecs::Pipeline pipeline;
-  
-  // 1. Input Phase
+
+  // 1. Input Phase — flush previous frame's events first, then gather input.
+  pipeline.add_pre_update([](ecs::World& w, float) { w.resource<EventRegistry>().flush_all(); });
   pipeline.add_pre_update([](ecs::World& w, float) { InputGatherSystem::Update(w); });
   pipeline.add_pre_update([](ecs::World& w, float) { PlayerInputSystem::Update(w); });
 

@@ -26,7 +26,18 @@ Components are split across two headers:
 | `MeshRenderer` | Visual representation data (shape type, color, scale offset). |
 | `WorldTag` | Marker for entities destroyed on scene reset. |
 
-## 3. System Responsibilities
+## 3. Event Bus
+
+Transient signals use a frame-scoped event bus (`src/events.hpp`). Each event
+type has its own `Events<T>` resource in the World. `EventRegistry::flush_all()`
+clears all queues as the first Pre-Update step each frame.
+
+| Event | Emitter | Purpose |
+| :--- | :--- | :--- |
+| `JumpEvent` | `CharacterStateSystem` | Fired once when `jump_impulse > 0`; carries `jump_number` (1 or 2) and `impulse` (m/s). |
+| `LandEvent` | `CharacterStateSystem` | Fired once on Airborne → Grounded transition. |
+
+## 4. System Responsibilities
 Systems are stateless logic blocks that operate on component queries:
 
 | System | Phase | Reads | Writes |

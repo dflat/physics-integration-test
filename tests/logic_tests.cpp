@@ -2,6 +2,7 @@
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include "../src/math_util.hpp"
 #include "../src/systems/character_state.hpp"
+#include "../src/events.hpp"
 
 // components.hpp and character_state.hpp are now free of engine-library
 // dependencies (RFC-0008), so apply_state can be exercised without linking
@@ -163,4 +164,51 @@ TEST_CASE("apply_state — no jump without input", "[character_state]") {
 
     CHECK(state.jump_impulse == 0.0f);
     CHECK(state.jump_count   == 0);
+}
+
+// ---------------------------------------------------------------------------
+// Events<T>
+// ---------------------------------------------------------------------------
+
+struct TestEvent { int value; };
+
+TEST_CASE("Events — send and read", "[events]") {
+    Events<TestEvent> queue;
+
+    CHECK(queue.empty());
+    CHECK(queue.read().empty());
+
+    queue.send({42});
+    queue.send({7});
+
+    CHECK_FALSE(queue.empty());
+    REQUIRE(queue.read().size() == 2);
+    CHECK(queue.read()[0].value == 42);
+    CHECK(queue.read()[1].value == 7);
+}
+
+TEST_CASE("Events — clear empties the queue", "[events]") {
+    Events<TestEvent> queue;
+    queue.send({1});
+    queue.send({2});
+    queue.clear();
+
+    CHECK(queue.empty());
+    CHECK(queue.read().empty());
+}
+
+TEST_CASE("Events — clear on empty queue is safe", "[events]") {
+    Events<TestEvent> queue;
+    queue.clear(); // must not crash or assert
+
+    CHECK(queue.empty());
+}
+
+TEST_CASE("Events — multiple sends accumulate in order", "[events]") {
+    Events<TestEvent> queue;
+    for (int i = 0; i < 5; ++i) queue.send({i});
+
+    const auto& v = queue.read();
+    REQUIRE(v.size() == 5);
+    for (int i = 0; i < 5; ++i) CHECK(v[i].value == i);
 }
