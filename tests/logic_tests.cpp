@@ -4,6 +4,7 @@
 #include "../src/systems/character_state.hpp"
 #include "../src/events.hpp"
 #include "../src/scene.hpp"
+#include "../src/debug_panel.hpp"
 #include <ecs/ecs.hpp>
 #include <ecs/modules/transform.hpp>
 
@@ -290,4 +291,58 @@ TEST_CASE("SceneLoader — player entity gets PlayerInput and PlayerState", "[sc
         ++player_count;
     });
     CHECK(player_count == 1);
+}
+
+// ---------------------------------------------------------------------------
+// DebugPanel
+// ---------------------------------------------------------------------------
+
+TEST_CASE("DebugPanel — watch creates section and row", "[debug]") {
+    DebugPanel panel;
+    panel.watch("Engine", "FPS", []() { return std::string("60"); });
+
+    REQUIRE(panel.sections().size() == 1);
+    CHECK(panel.sections()[0].title == "Engine");
+    REQUIRE(panel.sections()[0].rows.size() == 1);
+    CHECK(panel.sections()[0].rows[0].label == "FPS");
+    CHECK(panel.sections()[0].rows[0].fn() == "60");
+}
+
+TEST_CASE("DebugPanel — multiple rows in one section", "[debug]") {
+    DebugPanel panel;
+    panel.watch("Engine", "FPS",        []() { return std::string("60"); });
+    panel.watch("Engine", "Frame Time", []() { return std::string("16 ms"); });
+    panel.watch("Engine", "Entities",   []() { return std::string("15"); });
+
+    REQUIRE(panel.sections().size() == 1);
+    CHECK(panel.sections()[0].rows.size() == 3);
+    CHECK(panel.sections()[0].rows[1].label == "Frame Time");
+    CHECK(panel.sections()[0].rows[2].fn() == "15");
+}
+
+TEST_CASE("DebugPanel — multiple sections ordered by insertion", "[debug]") {
+    DebugPanel panel;
+    panel.watch("Engine",    "FPS",  []() { return std::string("60"); });
+    panel.watch("Character", "Mode", []() { return std::string("Grounded"); });
+
+    REQUIRE(panel.sections().size() == 2);
+    CHECK(panel.sections()[0].title == "Engine");
+    CHECK(panel.sections()[1].title == "Character");
+}
+
+TEST_CASE("DebugPanel — provider is called and returns current value", "[debug]") {
+    int counter = 0;
+    DebugPanel panel;
+    panel.watch("Test", "Count", [&counter]() { return std::to_string(counter); });
+
+    CHECK(panel.sections()[0].rows[0].fn() == "0");
+    counter = 42;
+    CHECK(panel.sections()[0].rows[0].fn() == "42");
+}
+
+TEST_CASE("DebugPanel — visible defaults to false, toggle works", "[debug]") {
+    DebugPanel panel;
+    CHECK_FALSE(panel.visible);
+    panel.visible = true;
+    CHECK(panel.visible);
 }

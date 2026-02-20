@@ -48,6 +48,7 @@ Systems are stateless logic blocks that operate on component queries:
 | `CharacterInputSystem` | Logic | `MainCamera` (view dirs), `PlayerInput` (move/jump) | `CharacterIntent` |
 | `CharacterStateSystem` | Logic | `CharacterHandle` (ground query), `CharacterIntent` | `CharacterState`; emits `JumpEvent`, `LandEvent` |
 | `AudioSystem` | Logic | `Events<JumpEvent>`, `Events<LandEvent>`, `AudioResource` | — (pure consumer) |
+| `DebugSystem` | Render | `DebugPanel` (provider registry), `World` (via captured lambdas) | — (pure consumer) |
 | `PlatformBuilderSystem` | Logic | `PlayerInput`, `PlayerState`, `WorldTransform` | Deferred entity creation |
 | `CharacterMotorSystem` | Logic | `CharacterIntent`, `CharacterState`, `CharacterHandle` | Jolt velocities; `LocalTransform`, `WorldTransform` |
 | `PhysicsSystem` | Physics (60 Hz) | `RigidBodyConfig`, `LocalTransform` | `RigidBodyHandle`; syncs `WorldTransform` from Jolt |
@@ -61,7 +62,7 @@ Pre-Update:  InputGather → PlayerInput
 Logic:       Camera → CharacterInput → CharacterState → Audio → PlatformBuilder → CharacterMotor
              └─ deferred().flush() (spawned platforms materialise before physics)
 Physics:     PhysicsSystem (60 Hz fixed step) → propagate_transforms
-Render:      RenderSystem
+Render:      RenderSystem → DebugSystem
              └─ deferred().flush() (cleanup)
 ```
 

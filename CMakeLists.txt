@@ -103,6 +103,7 @@ add_executable(
   src/systems/input_gather.cpp
   src/systems/player_input.cpp
   src/systems/audio.cpp
+  src/systems/debug.cpp
   src/systems/physics.cpp
   src/systems/renderer.cpp
 )

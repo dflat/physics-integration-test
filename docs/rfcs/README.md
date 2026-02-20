@@ -25,6 +25,7 @@ architectural changes for the game engine. Each RFC moves through a pipeline:
 | 0009 | Frame-Scoped Event Bus | Implemented | [02-implemented/0009-event-system.md](02-implemented/0009-event-system.md) |
 | 0010 | Scene Serialization | Implemented | [02-implemented/0010-scene-serialization.md](02-implemented/0010-scene-serialization.md) |
 | 0011 | Audio System | Implemented | [02-implemented/0011-audio-system.md](02-implemented/0011-audio-system.md) |
+| 0012 | Debug Overlay | Implemented | [02-implemented/0012-debug-overlay.md](02-implemented/0012-debug-overlay.md) |
 
 ## Workflow
 

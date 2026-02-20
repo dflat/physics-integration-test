@@ -3,6 +3,7 @@
 #include "scene.hpp"
 #include "assets.hpp"
 #include "audio_resource.hpp"
+#include "debug_panel.hpp"
 #include "physics_context.hpp"
 #include "pipeline.hpp"
 #include "systems/builder.hpp"
@@ -14,6 +15,7 @@
 #include "systems/player_input.hpp"
 #include "systems/physics.hpp"
 #include "systems/audio.hpp"
+#include "systems/debug.hpp"
 #include "systems/renderer.hpp"
 #include <ecs/ecs.hpp>
 #include <ecs/modules/transform.hpp>
@@ -36,6 +38,41 @@ int main() {
   AudioResource audio;
   audio.load();
   world.set_resource(audio);
+
+  // --- Debug Overlay Setup ---
+  {
+    DebugPanel panel;
+    panel.watch("Engine", "FPS",
+        []()       { return std::to_string(GetFPS()); });
+    panel.watch("Engine", "Frame Time",
+        []()       { char b[16]; std::snprintf(b, sizeof(b), "%d ms", (int)(GetFrameTime() * 1000)); return std::string(b); });
+    panel.watch("Engine", "Entities",
+        [&world]() { return std::to_string(world.count()); });
+    panel.watch("Character", "Mode",
+        [&world]() {
+            std::string r = "-";
+            world.each<CharacterState>([&](ecs::Entity, CharacterState& s) {
+                r = (s.mode == CharacterState::Mode::Grounded) ? "Grounded" : "Airborne";
+            });
+            return r;
+        });
+    panel.watch("Character", "Jump Count",
+        [&world]() {
+            std::string r = "-";
+            world.each<CharacterState>([&](ecs::Entity, CharacterState& s) { r = std::to_string(s.jump_count); });
+            return r;
+        });
+    panel.watch("Character", "Air Time",
+        [&world]() {
+            std::string r = "-";
+            world.each<CharacterState>([&](ecs::Entity, CharacterState& s) {
+                char b[16]; std::snprintf(b, sizeof(b), "%.2f s", s.air_time);
+                r = b;
+            });
+            return r;
+        });
+    world.set_resource(std::move(panel));
+  }
 
   PhysicsContext::InitJoltAllocator();
   world.set_resource(std::make_shared<PhysicsContext>());
@@ -81,7 +118,8 @@ int main() {
   });
 
   // 4. Render Phase
-  pipeline.add_render([](ecs::World& w, float) { RenderSystem::Update(w); });
+  pipeline.add_render([](ecs::World& w, float)    { RenderSystem::Update(w); });
+  pipeline.add_render([](ecs::World& w, float dt)  { DebugSystem::Update(w, dt); });
 
   // --- Main Loop ---
   float accumulator = 0.0f;
