@@ -89,13 +89,5 @@ void RenderSystem::Update(World& world) {
         EndShaderMode();
     EndMode3D();
 
-    // 4. Render UI
-    DrawFPS(10, 10);
-    DrawText("WASD / L-STICK: Move | SPACE / SOUTH: Jump | E,LMB / R-TRIG: Plant Platform", 10, 30, 20, LIGHTGRAY);
-    DrawText("R-MOUSE / R-STICK: Orbit | Z,X / L,R-BUMP: Zoom | C / WEST: Toggle Follow",   10, 60, 20, YELLOW);
-
-    DrawText(follow_mode ? "CAMERA: FOLLOW MODE" : "CAMERA: MANUAL MODE",
-             10, 90, 20, follow_mode ? GREEN : SKYBLUE);
-
     EndDrawing();
 }

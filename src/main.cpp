@@ -71,6 +71,12 @@ int main() {
             });
             return r;
         });
+    panel.watch("Camera", "Mode",
+        [&world]() {
+            auto* cam = world.try_resource<MainCamera>();
+            if (!cam) return std::string("-");
+            return cam->follow_mode ? std::string("Follow") : std::string("Manual");
+        });
     world.set_resource(std::move(panel));
   }
 
