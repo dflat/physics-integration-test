@@ -1,5 +1,6 @@
 #include "camera.hpp"
 #include "../components.hpp"
+#include "../physics_handles.hpp"
 #include "../math_util.hpp"
 #include "../input_state.hpp"
 #include <ecs/modules/transform.hpp>

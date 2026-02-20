@@ -1,7 +1,6 @@
 #include "character_input.hpp"
 #include "../components.hpp"
-#include <Jolt/Jolt.h>
-#include <Jolt/Math/Vec3.h>
+#include "../physics_handles.hpp"
 
 using namespace ecs;
 

@@ -1,12 +1,11 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include "../src/math_util.hpp"
+#include "../src/systems/character_state.hpp"
 
-// CharacterStateSystem::apply_state tests are deferred to RFC-0007.
-// components.hpp currently includes <raylib.h> and Jolt headers, which prevents
-// headless compilation. RFC-0007 (Component Type Purity) removes those dependencies,
-// at which point apply_state can be exercised from the test target without linking
-// the full engine stack.
+// components.hpp and character_state.hpp are now free of engine-library
+// dependencies (RFC-0008), so apply_state can be exercised without linking
+// Jolt or Raylib.
 
 using namespace engine::math;
 
@@ -57,3 +56,111 @@ TEST_CASE("Alignment (Dot Product) Calculation", "[math]") {
     }
 }
 
+// ---------------------------------------------------------------------------
+// CharacterStateSystem::apply_state
+// ---------------------------------------------------------------------------
+
+TEST_CASE("apply_state — jump_impulse is cleared each call", "[character_state]") {
+    // jump_impulse is a one-frame signal; must be zeroed at the top of every call.
+    CharacterIntent intent{};
+    CharacterState  state{};
+    state.jump_impulse = 99.0f; // stale value from a previous frame
+
+    CharacterStateSystem::apply_state(true, 0.016f, intent, state);
+
+    CHECK(state.jump_impulse == 0.0f);
+}
+
+TEST_CASE("apply_state — grounded resets air state", "[character_state]") {
+    CharacterIntent intent{};
+    CharacterState  state{};
+    state.mode       = CharacterState::Mode::Airborne;
+    state.jump_count = 1;
+    state.air_time   = 0.8f;
+
+    CharacterStateSystem::apply_state(true, 0.016f, intent, state);
+
+    CHECK(state.mode       == CharacterState::Mode::Grounded);
+    CHECK(state.jump_count == 0);
+    CHECK(state.air_time   == 0.0f);
+    CHECK(state.jump_impulse == 0.0f);
+}
+
+TEST_CASE("apply_state — airborne increments air_time", "[character_state]") {
+    CharacterIntent intent{};
+    CharacterState  state{};
+    state.mode     = CharacterState::Mode::Grounded;
+    state.air_time = 0.0f;
+
+    CharacterStateSystem::apply_state(false, 0.016f, intent, state);
+
+    CHECK(state.mode == CharacterState::Mode::Airborne);
+    CHECK_THAT(state.air_time, Catch::Matchers::WithinAbs(0.016f, 1e-5f));
+}
+
+TEST_CASE("apply_state — first jump from ground", "[character_state]") {
+    CharacterIntent intent{};
+    intent.jump_requested = true;
+    CharacterState state{};
+    state.mode = CharacterState::Mode::Grounded;
+
+    CharacterStateSystem::apply_state(true, 0.016f, intent, state);
+
+    CHECK_THAT(state.jump_impulse, Catch::Matchers::WithinRel(12.0f));
+    CHECK(state.jump_count == 1);
+}
+
+TEST_CASE("apply_state — double jump from air", "[character_state]") {
+    CharacterIntent intent{};
+    intent.jump_requested = true;
+    CharacterState state{};
+    state.mode       = CharacterState::Mode::Airborne;
+    state.jump_count = 1;
+    state.air_time   = 0.5f;
+
+    CharacterStateSystem::apply_state(false, 0.016f, intent, state);
+
+    CHECK_THAT(state.jump_impulse, Catch::Matchers::WithinRel(10.0f));
+    CHECK(state.jump_count == 2);
+}
+
+TEST_CASE("apply_state — no jump when exhausted", "[character_state]") {
+    CharacterIntent intent{};
+    intent.jump_requested = true;
+    CharacterState state{};
+    state.mode       = CharacterState::Mode::Airborne;
+    state.jump_count = 2; // both jumps used
+    state.air_time   = 0.5f;
+
+    CharacterStateSystem::apply_state(false, 0.016f, intent, state);
+
+    CHECK(state.jump_impulse == 0.0f);
+    CHECK(state.jump_count   == 2);
+}
+
+TEST_CASE("apply_state — coyote jump (airborne, first jump still available)", "[character_state]") {
+    // Walked off a ledge: airborne but jump_count==0, within coyote window.
+    CharacterIntent intent{};
+    intent.jump_requested = true;
+    CharacterState state{};
+    state.mode       = CharacterState::Mode::Airborne;
+    state.jump_count = 0;
+    state.air_time   = 0.1f; // within coyote window (< 0.2s)
+
+    CharacterStateSystem::apply_state(false, 0.016f, intent, state);
+
+    // Coyote path: consumes the first jump and increments → both jumps spent.
+    CHECK_THAT(state.jump_impulse, Catch::Matchers::WithinRel(12.0f));
+    CHECK(state.jump_count == 2);
+}
+
+TEST_CASE("apply_state — no jump without input", "[character_state]") {
+    CharacterIntent intent{}; // jump_requested == false
+    CharacterState  state{};
+    state.mode = CharacterState::Mode::Grounded;
+
+    CharacterStateSystem::apply_state(true, 0.016f, intent, state);
+
+    CHECK(state.jump_impulse == 0.0f);
+    CHECK(state.jump_count   == 0);
+}

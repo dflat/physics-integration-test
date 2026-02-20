@@ -6,7 +6,9 @@ This document describes the current architectural design, data flows, and techni
 The application is a 3D physics-driven prototype built using a data-oriented **Entity Component System (ECS)** architecture. It decouples simulation (Jolt), logic (Systems), and presentation (Raylib).
 
 ## 2. Component Definitions
-Data is stored in POD (Plain Old Data) structures within `src/components.hpp`:
+Components are split across two headers:
+- **`src/components.hpp`** — pure ECS/standard-library types; no engine-library dependencies; safe to include in headless test targets.
+- **`src/physics_handles.hpp`** — Jolt runtime handles and `MathBridge`; included only by systems that interact with the physics engine.
 
 | Component | Responsibility |
 | :--- | :--- |

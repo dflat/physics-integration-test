@@ -1,5 +1,6 @@
 #include "character_motor.hpp"
 #include "../components.hpp"
+#include "../physics_handles.hpp"
 #include "../physics_context.hpp"
 #include <Jolt/Physics/Collision/Shape/CapsuleShape.h>
 #include <Jolt/Physics/Collision/Shape/RotatedTranslatedShape.h>

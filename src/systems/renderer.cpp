@@ -1,5 +1,6 @@
 #include "renderer.hpp"
 #include "../components.hpp"
+#include "../physics_handles.hpp"
 #include "../assets.hpp"
 #include "../physics_context.hpp"
 #include <raylib.h>

@@ -1,5 +1,6 @@
 #include "physics.hpp"
 #include "../components.hpp"
+#include "../physics_handles.hpp"
 #include "../physics_context.hpp"
 #include <ecs/modules/transform.hpp>
 #include <ecs/integration/glm.hpp>
