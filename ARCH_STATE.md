@@ -69,7 +69,18 @@ The Logic ordering is a hard constraint:
 - `CharacterState` must precede `CharacterMotor` — the motor reads `jump_impulse` set by the state machine.
 - `CharacterMotor` must be the last Logic system — it calls `ExtendedUpdate` on the Jolt character, which must run before the physics step.
 
-## 5. Dependency Management
+## 5. Scene Format
+
+Scenes are defined in `resources/scenes/*.json` and loaded via `SceneLoader`
+(`src/scene.hpp` / `src/scene.cpp`). Each entity in the JSON can have:
+`transform`, `mesh`, `box_collider`, `sphere_collider`, `rigid_body`,
+`character`, and `tags` fields. The loader adds components in lifecycle-safe
+order (colliders before `rigid_body`, transform before `character`) so
+`on_add` hooks fire with sibling data present.
+
+`SceneLoader::load_from_string` is available for headless unit testing.
+
+## 6. Dependency Management
 - **ECS**: Internal header-only library managed as a **Git Submodule** in `extern/ecs`.
 - **Jolt Physics / Raylib / GLM**: Managed via **CMake FetchContent**, ensuring automated cross-platform dependency resolution.
 

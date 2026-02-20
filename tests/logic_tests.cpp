@@ -3,6 +3,9 @@
 #include "../src/math_util.hpp"
 #include "../src/systems/character_state.hpp"
 #include "../src/events.hpp"
+#include "../src/scene.hpp"
+#include <ecs/ecs.hpp>
+#include <ecs/modules/transform.hpp>
 
 // components.hpp and character_state.hpp are now free of engine-library
 // dependencies (RFC-0008), so apply_state can be exercised without linking
@@ -211,4 +214,80 @@ TEST_CASE("Events — multiple sends accumulate in order", "[events]") {
     const auto& v = queue.read();
     REQUIRE(v.size() == 5);
     for (int i = 0; i < 5; ++i) CHECK(v[i].value == i);
+}
+
+// ---------------------------------------------------------------------------
+// SceneLoader
+// ---------------------------------------------------------------------------
+
+static const char* MINIMAL_SCENE = R"({
+  "entities": [
+    {
+      "transform": { "position": [1.0, 2.0, 3.0], "rotation": [0,0,0,1], "scale": [4.0, 5.0, 6.0] },
+      "mesh": { "shape": "Box", "color": [0.5, 0.5, 0.5, 1.0] },
+      "box_collider": { "half_extents": [2.0, 2.5, 3.0] },
+      "rigid_body": { "type": "Static" },
+      "tags": ["World"]
+    },
+    {
+      "transform": { "position": [0.0, 5.0, 0.0], "rotation": [0,0,0,1], "scale": [1,1,1] },
+      "mesh": { "shape": "Capsule", "color": [1.0, 0.0, 0.0, 1.0] },
+      "character": { "height": 2.0, "radius": 0.5, "mass": 80.0, "max_slope_angle": 50.0 },
+      "tags": ["Player", "World"]
+    }
+  ]
+})";
+
+TEST_CASE("SceneLoader — correct entity count", "[scene]") {
+    ecs::World world;
+    REQUIRE(SceneLoader::load_from_string(world, MINIMAL_SCENE));
+    CHECK(world.count() == 2);
+}
+
+TEST_CASE("SceneLoader — static entity has correct transform", "[scene]") {
+    ecs::World world;
+    SceneLoader::load_from_string(world, MINIMAL_SCENE);
+
+    bool found = false;
+    world.each<ecs::LocalTransform, BoxCollider>([&](ecs::Entity, ecs::LocalTransform& lt, BoxCollider&) {
+        CHECK_THAT(lt.position.x, Catch::Matchers::WithinAbs(1.0f, 1e-4f));
+        CHECK_THAT(lt.position.y, Catch::Matchers::WithinAbs(2.0f, 1e-4f));
+        CHECK_THAT(lt.position.z, Catch::Matchers::WithinAbs(3.0f, 1e-4f));
+        CHECK_THAT(lt.scale.x,    Catch::Matchers::WithinAbs(4.0f, 1e-4f));
+        found = true;
+    });
+    CHECK(found);
+}
+
+TEST_CASE("SceneLoader — character entity has correct config", "[scene]") {
+    ecs::World world;
+    SceneLoader::load_from_string(world, MINIMAL_SCENE);
+
+    bool found = false;
+    world.each<CharacterControllerConfig, PlayerTag>([&](ecs::Entity,
+                                                         CharacterControllerConfig& cfg,
+                                                         PlayerTag&) {
+        CHECK_THAT(cfg.height,          Catch::Matchers::WithinAbs(2.0f,  1e-4f));
+        CHECK_THAT(cfg.radius,          Catch::Matchers::WithinAbs(0.5f,  1e-4f));
+        CHECK_THAT(cfg.max_slope_angle, Catch::Matchers::WithinAbs(50.0f, 1e-4f));
+        found = true;
+    });
+    CHECK(found);
+}
+
+TEST_CASE("SceneLoader — malformed JSON returns false", "[scene]") {
+    ecs::World world;
+    CHECK_FALSE(SceneLoader::load_from_string(world, "{bad json"));
+    CHECK(world.count() == 0);
+}
+
+TEST_CASE("SceneLoader — player entity gets PlayerInput and PlayerState", "[scene]") {
+    ecs::World world;
+    SceneLoader::load_from_string(world, MINIMAL_SCENE);
+
+    int player_count = 0;
+    world.each<PlayerTag, PlayerInput, PlayerState>([&](ecs::Entity, PlayerTag&, PlayerInput&, PlayerState&) {
+        ++player_count;
+    });
+    CHECK(player_count == 1);
 }

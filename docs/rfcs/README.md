@@ -23,6 +23,7 @@ architectural changes for the game engine. Each RFC moves through a pipeline:
 | 0007 | Component Type Purity | Implemented | [02-implemented/0007-component-type-purity.md](02-implemented/0007-component-type-purity.md) |
 | 0008 | Physics Handle Isolation | Implemented | [02-implemented/0008-physics-handle-isolation.md](02-implemented/0008-physics-handle-isolation.md) |
 | 0009 | Frame-Scoped Event Bus | Implemented | [02-implemented/0009-event-system.md](02-implemented/0009-event-system.md) |
+| 0010 | Scene Serialization | Implemented | [02-implemented/0010-scene-serialization.md](02-implemented/0010-scene-serialization.md) |
 
 ## Workflow
 

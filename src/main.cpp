@@ -1,5 +1,6 @@
 #include "components.hpp"
 #include "events.hpp"
+#include "scene.hpp"
 #include "assets.hpp"
 #include "physics_context.hpp"
 #include "pipeline.hpp"
@@ -16,72 +17,8 @@
 #include <ecs/modules/transform.hpp>
 #include <ecs/modules/transform_propagation.hpp>
 #include <raylib.h>
-#include <raymath.h>
 
-ecs::Quat ToEcs(Quaternion q) { return {q.x, q.y, q.z, q.w}; }
-
-
-void SpawnScene(ecs::World &world) {
-  // 1. Ground Plane
-  auto ground = world.create();
-  world.add(ground, ecs::LocalTransform{{0, -1, 0}, {0, 0, 0, 1}, {100, 1, 100}});
-  world.add(ground, ecs::WorldTransform{});
-  world.add(ground, MeshRenderer{ShapeType::Box, Colors::DarkGray});
-  world.add(ground, BoxCollider{{50, 0.5f, 50}});
-  world.add(ground, RigidBodyConfig{BodyType::Static});
-  world.add(ground, WorldTag{});
-
-  // 2. Player
-  auto player = world.create();
-  world.add(player, ecs::LocalTransform{{0, 2, 0}});
-  world.add(player, ecs::WorldTransform{});
-  world.add(player, MeshRenderer{ShapeType::Capsule, Colors::Red});
-  world.add(player, PlayerTag{});
-  world.add(player, PlayerInput{});
-  world.add(player, PlayerState{});
-  world.add(player, CharacterControllerConfig{});
-  world.add(player, WorldTag{});
-
-  // 3. Climbing Parkour with Inclined Planes
-  struct Platform {
-    ecs::Vec3 pos;
-    ecs::Quat rot;
-    ecs::Vec3 size;
-    Color4    color;
-  };
-
-  ecs::Quat q_id = {0,0,0,1};
-  ecs::Quat q_pitch_20 = ToEcs(QuaternionFromAxisAngle({1, 0, 0}, 20.0f * DEG2RAD));
-  ecs::Quat q_pitch_40 = ToEcs(QuaternionFromAxisAngle({1, 0, 0}, 40.0f * DEG2RAD));
-  ecs::Quat q_roll_20 = ToEcs(QuaternionFromAxisAngle({0, 0, 1}, 20.0f * DEG2RAD));
-
-  std::vector<Platform> platforms = {
-      {{5, 1, 5},       q_id,       {4, 2, 4},  Colors::Gray},
-      {{10, 2.5f, 10},  q_id,       {3, 1, 3},  Colors::DarkBlue},
-      // Ramps
-      {{15, 2.0f, 0},   q_pitch_20, {8, 1, 4},  Colors::DarkGreen},
-      {{20, 5.0f, -5},  q_pitch_40, {8, 1, 4},  Colors::Maroon},
-      {{15, 8.0f, -15}, q_roll_20,  {4, 1, 8},  Colors::Purple},
-      // Higher platforms
-      {{0, 10.0f, -15},  q_id,      {6, 1, 6},  Colors::Gold},
-      {{-10, 13.0f,-10}, q_id,      {4, 1, 4},  Colors::SkyBlue},
-      {{-15, 16.0f, 0},  q_pitch_20,{5, 1, 10}, Colors::Orange},
-      // Floating steps
-      {{-5, 18.0f, 10}, q_id,       {2, 0.5f, 2}, Colors::Lime},
-      {{0,  20.0f, 15}, q_id,       {2, 0.5f, 2}, Colors::Lime},
-      {{5,  22.0f, 20}, q_id,       {2, 0.5f, 2}, Colors::Lime},
-  };
-
-  for (const auto& p : platforms) {
-      auto ent = world.create();
-      world.add(ent, ecs::LocalTransform{p.pos, p.rot, p.size});
-      world.add(ent, ecs::WorldTransform{});
-      world.add(ent, MeshRenderer{ShapeType::Box, p.color});
-      world.add(ent, BoxCollider{{p.size.x*0.5f, p.size.y*0.5f, p.size.z*0.5f}});
-      world.add(ent, RigidBodyConfig{BodyType::Static});
-      world.add(ent, WorldTag{});
-  }
-}
+static const char* SCENE_PATH = "resources/scenes/default.json";
 
 int main() {
   InitWindow(1280, 720, "Physics Integration - Dynamic Parkour");
@@ -110,7 +47,7 @@ int main() {
     reg.register_queue<LandEvent>(world);
   }
 
-  SpawnScene(world);
+  SceneLoader::load(world, SCENE_PATH);
 
   // --- Pipeline Configuration ---
   ecs::Pipeline pipeline;
@@ -146,11 +83,8 @@ int main() {
     float dt = GetFrameTime();
 
     if (IsKeyPressed(KEY_R)) {
-        std::vector<ecs::Entity> to_destroy;
-        world.each<WorldTag>([&](ecs::Entity e, WorldTag&) { to_destroy.push_back(e); });
-        for (auto e : to_destroy) world.destroy(e);
-        world.deferred().flush(world); 
-        SpawnScene(world);
+        SceneLoader::unload(world);
+        SceneLoader::load(world, SCENE_PATH);
     }
 
     // 1. Update Logic & Input
