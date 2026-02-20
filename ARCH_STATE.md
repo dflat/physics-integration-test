@@ -46,7 +46,8 @@ Systems are stateless logic blocks that operate on component queries:
 | `PlayerInputSystem` | Pre-Update | `InputRecord` | `PlayerInput` |
 | `CameraSystem` | Logic | `InputRecord`, `PlayerInput`, `CharacterHandle`, `WorldTransform` | `MainCamera` (including view dirs) |
 | `CharacterInputSystem` | Logic | `MainCamera` (view dirs), `PlayerInput` (move/jump) | `CharacterIntent` |
-| `CharacterStateSystem` | Logic | `CharacterHandle` (ground query), `CharacterIntent` | `CharacterState` |
+| `CharacterStateSystem` | Logic | `CharacterHandle` (ground query), `CharacterIntent` | `CharacterState`; emits `JumpEvent`, `LandEvent` |
+| `AudioSystem` | Logic | `Events<JumpEvent>`, `Events<LandEvent>`, `AudioResource` | — (pure consumer) |
 | `PlatformBuilderSystem` | Logic | `PlayerInput`, `PlayerState`, `WorldTransform` | Deferred entity creation |
 | `CharacterMotorSystem` | Logic | `CharacterIntent`, `CharacterState`, `CharacterHandle` | Jolt velocities; `LocalTransform`, `WorldTransform` |
 | `PhysicsSystem` | Physics (60 Hz) | `RigidBodyConfig`, `LocalTransform` | `RigidBodyHandle`; syncs `WorldTransform` from Jolt |
@@ -57,7 +58,7 @@ Each frame follows a strict four-phase sequence:
 
 ```
 Pre-Update:  InputGather → PlayerInput
-Logic:       Camera → CharacterInput → CharacterState → PlatformBuilder → CharacterMotor
+Logic:       Camera → CharacterInput → CharacterState → Audio → PlatformBuilder → CharacterMotor
              └─ deferred().flush() (spawned platforms materialise before physics)
 Physics:     PhysicsSystem (60 Hz fixed step) → propagate_transforms
 Render:      RenderSystem

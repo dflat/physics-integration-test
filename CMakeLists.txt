@@ -102,6 +102,7 @@ add_executable(
   src/systems/character_motor.cpp
   src/systems/input_gather.cpp
   src/systems/player_input.cpp
+  src/systems/audio.cpp
   src/systems/physics.cpp
   src/systems/renderer.cpp
 )

@@ -2,6 +2,7 @@
 #include "events.hpp"
 #include "scene.hpp"
 #include "assets.hpp"
+#include "audio_resource.hpp"
 #include "physics_context.hpp"
 #include "pipeline.hpp"
 #include "systems/builder.hpp"
@@ -12,6 +13,7 @@
 #include "systems/input_gather.hpp"
 #include "systems/player_input.hpp"
 #include "systems/physics.hpp"
+#include "systems/audio.hpp"
 #include "systems/renderer.hpp"
 #include <ecs/ecs.hpp>
 #include <ecs/modules/transform.hpp>
@@ -22,6 +24,7 @@ static const char* SCENE_PATH = "resources/scenes/default.json";
 
 int main() {
   InitWindow(1280, 720, "Physics Integration - Dynamic Parkour");
+  InitAudioDevice();
   SetTargetFPS(60);
 
   ecs::World world;
@@ -29,6 +32,10 @@ int main() {
   AssetResource assets;
   assets.load();
   world.set_resource(assets);
+
+  AudioResource audio;
+  audio.load();
+  world.set_resource(audio);
 
   PhysicsContext::InitJoltAllocator();
   world.set_resource(std::make_shared<PhysicsContext>());
@@ -63,6 +70,7 @@ int main() {
   pipeline.add_logic([](ecs::World& w, float dt) { CameraSystem::Update(w, dt); });
   pipeline.add_logic([](ecs::World& w, float dt) { CharacterInputSystem::Update(w, dt); });
   pipeline.add_logic([](ecs::World& w, float dt) { CharacterStateSystem::Update(w, dt); });
+  pipeline.add_logic([](ecs::World& w, float dt) { AudioSystem::Update(w, dt); });
   pipeline.add_logic([](ecs::World& w, float)    { PlatformBuilderSystem::Update(w); });
   pipeline.add_logic([](ecs::World& w, float dt) { CharacterMotorSystem::Update(w, dt); });
 
@@ -102,6 +110,8 @@ int main() {
   }
 
   world.resource<AssetResource>().unload();
+  world.resource<AudioResource>().unload();
+  CloseAudioDevice();
   CloseWindow();
   return 0;
 }
