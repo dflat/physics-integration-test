@@ -82,11 +82,60 @@ order (colliders before `rigid_body`, transform before `character`) so
 
 `SceneLoader::load_from_string` is available for headless unit testing.
 
-## 6. Dependency Management
+## 6. Module Structure
+
+All subsystems are wired into the engine via a **module convention** (RFC-0013).
+Each module is a header-only struct in `src/modules/` with one or two static methods:
+
+```cpp
+struct SomeModule {
+    static void install(ecs::World& world, ecs::Pipeline& pipeline); // required
+    static void shutdown(ecs::World& world);                          // if teardown needed
+};
+```
+
+`install` owns everything for that subsystem: resource creation, `System::Register()`
+calls (lifecycle hooks), event queue registration, pipeline wiring, and optional debug
+rows (guarded by `try_resource<DebugPanel>()`). `main.cpp` is a pure wiring manifest —
+a sequenced list of `Module::install` calls.
+
+### Install Order
+
+Modules split into two groups based on which pipeline phases they populate:
+
+**Engine Modules** (Pre-Update / Physics / Render — order within group is flexible):
+
+| Module | Phase added | Resources created |
+|--------|-------------|-------------------|
+| `EventBusModule` | Pre-Update (flush) | `EventRegistry` |
+| `InputModule` | Pre-Update (gather, player) | — |
+| `PhysicsModule` | Physics (step, propagate) | `PhysicsContext` |
+| `RenderModule` | Render (3D scene) | `AssetResource`, `MainCamera` |
+| `DebugModule` | Render (overlay) | `DebugPanel` |
+
+**Game Modules** (Logic phase — install order = execution order, hard constraint):
+
+| Module | Logic slot | Notes |
+|--------|-----------|-------|
+| `CameraModule::install` | Logic[1] | Must be first |
+| `CharacterModule::install` | Logic[2,3] | CharInput + CharState |
+| `AudioModule::install` | Logic[4] | InitAudioDevice + AudioResource |
+| `BuilderModule::install` | Logic[5] | — |
+| `CharacterModule::install_motor` | Logic[6] | Must be last |
+
+The `install_motor` split exists because `CharacterMotorSystem` must follow
+`AudioSystem` and `PlatformBuilderSystem` but belongs conceptually to
+`CharacterModule`. A second entry point keeps the ordering constraint visible
+in `main.cpp` rather than hidden inside a single install call.
+
+See `docs/architecture-guides/ARCH-0013-module-convention.md` for the full
+pedagogical reference.
+
+## 7. Dependency Management
 - **ECS**: Internal header-only library managed as a **Git Submodule** in `extern/ecs`.
 - **Jolt Physics / Raylib / GLM**: Managed via **CMake FetchContent**, ensuring automated cross-platform dependency resolution.
 
-## 6. Deployment & CI/CD
+## 8. Deployment & CI/CD
 - **Cross-Platform Support**: Targeted for Linux (GCC/Clang) and Windows (MSVC).
 - **CI**: GitHub Actions (`.github/workflows/windows-build.yml`) validates every push on `windows-latest`.
 - **Artifacts**: Successful Windows builds produce a `windows-binary` artifact containing the executable and the `resources/` directory.

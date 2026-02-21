@@ -26,6 +26,7 @@ architectural changes for the game engine. Each RFC moves through a pipeline:
 | 0010 | Scene Serialization | Implemented | [02-implemented/0010-scene-serialization.md](02-implemented/0010-scene-serialization.md) |
 | 0011 | Audio System | Implemented | [02-implemented/0011-audio-system.md](02-implemented/0011-audio-system.md) |
 | 0012 | Debug Overlay | Implemented | [02-implemented/0012-debug-overlay.md](02-implemented/0012-debug-overlay.md) |
+| 0013 | Module Convention | Implemented | [02-implemented/0013-module-convention.md](02-implemented/0013-module-convention.md) |
 
 ## Workflow
 
