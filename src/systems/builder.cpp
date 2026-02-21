@@ -22,7 +22,10 @@ void PlatformBuilderSystem::Update(World& world) {
 
             // Position: beneath player
             ecs::Vec3 player_pos = { wt.matrix.m[12], wt.matrix.m[13], wt.matrix.m[14] };
-            ecs::Vec3 spawn_pos = { player_pos.x, player_pos.y - 0.2f, player_pos.z };
+            // Offset = character radius (0.4) + platform half-height (0.25), so the
+            // platform's top surface sits exactly at the character's feet. This prevents
+            // the static body from overlapping the CharacterVirtual and forcing it upward.
+            ecs::Vec3 spawn_pos = { player_pos.x, player_pos.y - 0.65f, player_pos.z };
             ecs::Vec3 size = { 4.0f, 0.5f, 4.0f };
 
             world.deferred().create_with(
