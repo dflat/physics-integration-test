@@ -8,6 +8,13 @@
 
 using namespace ecs;
 
+// Accepts only static (NON_MOVING) bodies for the platform placement raycast.
+struct StaticOnlyLayerFilter final : public JPH::ObjectLayerFilter {
+    bool ShouldCollide(JPH::ObjectLayer inLayer) const override {
+        return inLayer == Layers::NON_MOVING;
+    }
+};
+
 void PlatformBuilderSystem::Update(World& world) {
     float dt = GetFrameTime();
     world.each<PlayerTag, WorldTransform, PlayerInput, PlayerState>([&](Entity, PlayerTag&, WorldTransform& wt, PlayerInput& input, PlayerState& state) {
@@ -45,10 +52,11 @@ void PlatformBuilderSystem::Update(World& world) {
                     JPH::Vec3(0.f, -(size.y + 0.01f), 0.f) // down by full platform height + epsilon
                 };
                 JPH::RayCastResult result;
+                // MOVING layer sees all broadphase buckets; StaticOnlyLayerFilter
+                // then narrows hits to NON_MOVING (static) bodies only.
                 JPH::DefaultBroadPhaseLayerFilter bp_filter(
-                    ctx.object_vs_broadphase_layer_filter, Layers::NON_MOVING);
-                JPH::DefaultObjectLayerFilter obj_filter(
-                    ctx.object_layer_pair_filter, Layers::NON_MOVING);
+                    ctx.object_vs_broadphase_layer_filter, Layers::MOVING);
+                StaticOnlyLayerFilter obj_filter;
                 JPH::BodyFilter body_filter;
 
                 if (ctx.physics_system->GetNarrowPhaseQuery().CastRay(
