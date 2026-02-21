@@ -1,5 +1,9 @@
 #include "builder.hpp"
 #include "../components.hpp"
+#include "../physics_context.hpp"
+#include <Jolt/Physics/Collision/RayCast.h>
+#include <Jolt/Physics/Collision/CastResult.h>
+#include <algorithm>
 #include <raylib.h>
 
 using namespace ecs;
@@ -22,11 +26,41 @@ void PlatformBuilderSystem::Update(World& world) {
 
             // Position: beneath player
             ecs::Vec3 player_pos = { wt.matrix.m[12], wt.matrix.m[13], wt.matrix.m[14] };
-            // Offset = character radius (0.4) + platform half-height (0.25), so the
-            // platform's top surface sits exactly at the character's feet. This prevents
-            // the static body from overlapping the CharacterVirtual and forcing it upward.
-            ecs::Vec3 spawn_pos = { player_pos.x, player_pos.y - 0.65f, player_pos.z };
             ecs::Vec3 size = { 4.0f, 0.5f, 4.0f };
+
+            // Character radius = 0.4; platform half-height = 0.25.
+            // Default spawn: platform top at feet, so center = feet - half_h.
+            constexpr float k_char_radius    = 0.4f;
+            constexpr float k_platform_half_h = 0.25f;
+            float feet_y  = player_pos.y - k_char_radius;
+            float spawn_y = feet_y - k_platform_half_h;
+
+            // Cast a short ray downward from the feet to detect static geometry
+            // within the platform volume. If we'd overlap it, snap on top.
+            auto* ctx_ptr = world.try_resource<std::shared_ptr<PhysicsContext>>();
+            if (ctx_ptr && *ctx_ptr) {
+                auto& ctx = **ctx_ptr;
+                JPH::RRayCast ray{
+                    JPH::RVec3(player_pos.x, feet_y, player_pos.z),
+                    JPH::Vec3(0.f, -(size.y + 0.01f), 0.f) // down by full platform height + epsilon
+                };
+                JPH::RayCastResult result;
+                JPH::DefaultBroadPhaseLayerFilter bp_filter(
+                    ctx.object_vs_broadphase_layer_filter, Layers::NON_MOVING);
+                JPH::DefaultObjectLayerFilter obj_filter(
+                    ctx.object_layer_pair_filter, Layers::NON_MOVING);
+                JPH::BodyFilter body_filter;
+
+                if (ctx.physics_system->GetNarrowPhaseQuery().CastRay(
+                        ray, result, bp_filter, obj_filter, body_filter)) {
+                    // result.mFraction is in [0,1] along the ray direction
+                    float surface_top  = feet_y + result.mFraction * ray.mDirection.GetY();
+                    float surface_based = surface_top + k_platform_half_h;
+                    spawn_y = std::max(spawn_y, surface_based);
+                }
+            }
+
+            ecs::Vec3 spawn_pos = { player_pos.x, spawn_y, player_pos.z };
 
             world.deferred().create_with(
                 ecs::LocalTransform{spawn_pos, {0,0,0,1}, size},
