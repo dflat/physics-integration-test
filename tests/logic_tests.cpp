@@ -154,9 +154,9 @@ TEST_CASE("apply_state — coyote jump (airborne, first jump still available)", 
 
     CharacterStateSystem::apply_state(false, 0.016f, intent, state);
 
-    // Coyote path: consumes the first jump and increments → both jumps spent.
+    // Coyote jump uses the first slot — double jump is still available.
     CHECK_THAT(state.jump_impulse, Catch::Matchers::WithinRel(12.0f));
-    CHECK(state.jump_count == 2);
+    CHECK(state.jump_count == 1);
 }
 
 TEST_CASE("apply_state — no jump without input", "[character_state]") {

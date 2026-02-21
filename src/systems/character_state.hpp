@@ -31,10 +31,6 @@ public:
 
         if (intent.jump_requested && can_jump) {
             state.jump_impulse = (state.jump_count == 0) ? 12.0f : 10.0f;
-            // Coyote jump: airborne but first jump — consume it before incrementing
-            if (!on_ground && state.jump_count == 0) {
-                state.jump_count = 1;
-            }
             state.jump_count++;
         }
     }
